@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const authenticate = require('../middlewares/authenticate');
-const paymentController = require('../controllers/payment.controller');
+import authenticate from '../middlewares/authenticate.js';
+import * as paymentController from '../controllers/payment.controller.js';
 
 // ──────────────────────────────────────────────────────────────
 // Payment Routes — /api/v1/payments
@@ -22,4 +22,4 @@ router.get('/:orderId', paymentController.getPaymentDetails);
 // PortSwigger – Business Logic Vulnerabilities
 router.post('/refund', paymentController.refundPayment);
 
-module.exports = router;
+export default router;

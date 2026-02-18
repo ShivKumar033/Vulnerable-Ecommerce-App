@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const exportController = require('../controllers/export.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as exportController from '../controllers/export.controller.js';
 
 const router = Router();
 
@@ -12,4 +12,4 @@ const router = Router();
 // CSV Import (Admin/Vendor)
 router.post('/products', authenticate, authorize('ADMIN', 'VENDOR'), exportController.importProductsCsv);
 
-module.exports = router;
+export default router;

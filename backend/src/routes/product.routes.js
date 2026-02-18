@@ -1,9 +1,9 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const productController = require('../controllers/product.controller');
-const { upload } = require('../utils/upload');
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as productController from '../controllers/product.controller.js';
+import { upload } from '../utils/upload.js';
 
 // ──────────────────────────────────────────────────────────────
 // Product Routes — /api/v1/products
@@ -56,4 +56,4 @@ router.post(
     productController.fetchProductImageFromUrl
 );
 
-module.exports = router;
+export default router;

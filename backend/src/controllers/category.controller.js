@@ -1,5 +1,5 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 // ──────────────────────────────────────────────────────────────
 // Category Controller
@@ -186,7 +186,7 @@ async function deleteCategory(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     listCategories,
     getCategory,
     createCategory,

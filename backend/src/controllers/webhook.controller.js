@@ -1,6 +1,8 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
-const crypto = require('crypto');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import crypto from 'crypto';
+import http from 'http';
+import https from 'https';
 
 // ──────────────────────────────────────────────────────────────
 // Webhook Controller
@@ -161,7 +163,7 @@ async function dispatchToRegistered(event, data) {
                 // VULNERABLE: SSRF — no validation on config.url
                 // Admin can set webhook URL to internal services
                 // Maps to: OWASP A10:2021 – Server-Side Request Forgery
-                const http = config.url.startsWith('https') ? require('https') : require('http');
+                const sender = config.url.startsWith('https') ? https : http;
                 const urlObj = new URL(config.url);
 
                 const postData = JSON.stringify({ event, data, timestamp: Date.now() });
@@ -182,7 +184,7 @@ async function dispatchToRegistered(event, data) {
                     },
                 };
 
-                const req = http.request(options, (res) => {
+                const req = sender.request(options, (res) => {
                     // fire and forget
                 });
                 req.on('error', (err) => {
@@ -294,7 +296,7 @@ async function deleteWebhookConfig(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     paymentWebhook,
     listWebhookConfigs,
     createWebhookConfig,

@@ -1,6 +1,6 @@
-const { Router } = require('express');
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
+import { Router } from 'express';
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 const router = Router();
 
@@ -244,4 +244,4 @@ router.post('/debug/eval', async (req, res, next) => {
     }
 });
 
-module.exports = router;
+export default router;

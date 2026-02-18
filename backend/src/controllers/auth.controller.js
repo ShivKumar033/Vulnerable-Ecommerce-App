@@ -1,8 +1,8 @@
-const { prisma } = require('../config/db');
-const { hashPassword, comparePassword } = require('../utils/password');
-const { generateAccessToken, generateRefreshToken, verifyToken } = require('../utils/jwt');
-const { createAuditLog } = require('../utils/auditLog');
-const crypto = require('crypto');
+import { prisma } from '../config/db.js';
+import { hashPassword, comparePassword } from '../utils/password.js';
+import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils/jwt.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import crypto from 'crypto';
 
 // ──────────────────────────────────────────────────────────────
 // Auth Controller
@@ -488,10 +488,10 @@ async function resetPassword(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     register,
     login,
-    refreshToken: refreshTokenHandler,
+    refreshTokenHandler as refreshToken,
     logout,
     forgotPassword,
     resetPassword,

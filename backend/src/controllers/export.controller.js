@@ -1,6 +1,8 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
-const PDFDocument = require('pdfkit');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import PDFDocument from 'pdfkit';
+import http from 'http';
+import https from 'https';
 
 // ──────────────────────────────────────────────────────────────
 // Export / Import Controller
@@ -240,9 +242,9 @@ async function generateInvoice(req, res, next) {
         let templateContent = null;
         if (templateUrl) {
             try {
-                const http = templateUrl.startsWith('https') ? require('https') : require('http');
+                const sender = templateUrl.startsWith('https') ? https : http;
                 const fetchPromise = new Promise((resolve, reject) => {
-                    http.get(templateUrl, (response) => {
+                    sender.get(templateUrl, (response) => {
                         const chunks = [];
                         response.on('data', (chunk) => chunks.push(chunk));
                         response.on('end', () => resolve(Buffer.concat(chunks).toString()));
@@ -541,7 +543,7 @@ async function exportAuditLogsCsv(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     exportOrdersCsv,
     exportUsersCsv,
     exportProductsCsv,

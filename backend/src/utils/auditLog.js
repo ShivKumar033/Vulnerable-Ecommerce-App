@@ -1,4 +1,4 @@
-const { prisma } = require('../config/db');
+import { prisma } from '../config/db.js';
 
 // ──────────────────────────────────────────────────────────────
 // Audit Log Utility
@@ -38,4 +38,4 @@ async function createAuditLog({ userId, action, entity, entityId, metadata, req 
     }
 }
 
-module.exports = { createAuditLog };
+export { createAuditLog };

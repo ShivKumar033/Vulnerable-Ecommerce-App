@@ -1,5 +1,5 @@
-const { verifyToken } = require('../utils/jwt');
-const { prisma } = require('../config/db');
+import { verifyToken } from '../utils/jwt.js';
+import { prisma } from '../config/db.js';
 
 // ──────────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -61,4 +61,4 @@ async function authenticate(req, res, next) {
     }
 }
 
-module.exports = authenticate;
+export default authenticate;

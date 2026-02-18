@@ -1,6 +1,6 @@
-const http = require('http');
-const app = require('./app');
-const { connectDB, disconnectDB } = require('./config/db');
+import http from 'http';
+import app from './app.js';
+import { connectDB, disconnectDB } from './config/db.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -14,7 +14,7 @@ const server = http.createServer(app);
 async function startServer() {
     // Attempt database connection
     const dbConnected = await connectDB();
- 
+
     server.listen(PORT, () => {
         console.log(`
 ╔═══════════════════════════════════════════════════════════════╗

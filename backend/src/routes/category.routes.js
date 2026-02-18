@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const categoryController = require('../controllers/category.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as categoryController from '../controllers/category.controller.js';
 
 const router = Router();
 
@@ -18,4 +18,4 @@ router.post('/', authenticate, authorize('ADMIN'), categoryController.createCate
 router.put('/:id', authenticate, authorize('ADMIN'), categoryController.updateCategory);
 router.delete('/:id', authenticate, authorize('ADMIN'), categoryController.deleteCategory);
 
-module.exports = router;
+export default router;

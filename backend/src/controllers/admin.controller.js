@@ -1,6 +1,6 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
-const { hashPassword } = require('../utils/password');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import { hashPassword } from '../utils/password.js';
 
 // ──────────────────────────────────────────────────────────────
 // Admin Controller
@@ -829,7 +829,7 @@ async function cancelOrder(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     // Users
     listUsers,
     getUser,

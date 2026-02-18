@@ -1,5 +1,5 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 // ──────────────────────────────────────────────────────────────
 // Review Controller
@@ -197,7 +197,7 @@ async function deleteReview(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     listProductReviews,
     createReview,
     updateReview,

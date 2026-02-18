@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 // ──────────────────────────────────────────────────────────────
 // JWT Utilities
@@ -65,7 +65,7 @@ function verifyToken(token) {
     });
 }
 
-module.exports = {
+export {
     generateAccessToken,
     generateRefreshToken,
     verifyToken,

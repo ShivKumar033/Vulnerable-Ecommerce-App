@@ -1,5 +1,5 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 // ──────────────────────────────────────────────────────────────
 // Wallet / Store Credits Controller
@@ -531,7 +531,7 @@ async function adminAdjustWallet(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     getWallet,
     addCredit,
     debitWallet,

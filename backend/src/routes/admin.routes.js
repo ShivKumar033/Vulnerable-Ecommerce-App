@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const adminController = require('../controllers/admin.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as adminController from '../controllers/admin.controller.js';
 
 const router = Router();
 
@@ -50,4 +50,4 @@ router.post('/bulk/orders', authenticate, authorize('ADMIN'), adminController.bu
 // Order cancellation with stock release
 router.post('/orders/:id/cancel', authenticate, authorize('ADMIN'), adminController.cancelOrder);
 
-module.exports = router;
+export default router;

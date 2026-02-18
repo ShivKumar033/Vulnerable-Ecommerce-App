@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const walletController = require('../controllers/wallet.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as walletController from '../controllers/wallet.controller.js';
 
 const router = Router();
 
@@ -29,4 +29,4 @@ router.post('/transfer', authenticate, walletController.transferCredits);
 router.get('/admin/:userId', authenticate, authorize('ADMIN'), walletController.adminGetWallet);
 router.post('/admin/:userId/adjust', authenticate, authorize('ADMIN'), walletController.adminAdjustWallet);
 
-module.exports = router;
+export default router;

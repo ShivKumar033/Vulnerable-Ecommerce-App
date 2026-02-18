@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const webhookController = require('../controllers/webhook.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as webhookController from '../controllers/webhook.controller.js';
 
 const router = Router();
 
@@ -20,4 +20,4 @@ router.post('/configs', authenticate, authorize('ADMIN'), webhookController.crea
 router.put('/configs/:id', authenticate, authorize('ADMIN'), webhookController.updateWebhookConfig);
 router.delete('/configs/:id', authenticate, authorize('ADMIN'), webhookController.deleteWebhookConfig);
 
-module.exports = router;
+export default router;

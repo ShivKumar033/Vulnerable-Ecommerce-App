@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const orderController = require('../controllers/order.controller');
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as orderController from '../controllers/order.controller.js';
 
 // ──────────────────────────────────────────────────────────────
 // Order Routes — /api/v1/orders
@@ -42,4 +42,4 @@ router.get('/:id', orderController.getOrder);
 // PortSwigger – Business Logic Vulnerabilities
 router.put('/:id/status', orderController.updateOrderStatus);
 
-module.exports = router;
+export default router;

@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const supportController = require('../controllers/support.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as supportController from '../controllers/support.controller.js';
 
 const router = Router();
 
@@ -15,4 +15,4 @@ router.get('/orders/:id', authenticate, authorize('SUPPORT', 'ADMIN'), supportCo
 router.get('/users', authenticate, authorize('SUPPORT', 'ADMIN'), supportController.viewUsers);
 router.get('/users/:id', authenticate, authorize('SUPPORT', 'ADMIN'), supportController.viewUser);
 
-module.exports = router;
+export default router;

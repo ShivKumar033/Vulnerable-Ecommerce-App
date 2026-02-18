@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const authenticate = require('../middlewares/authenticate');
-const authController = require('../controllers/auth.controller');
-const oauthController = require('../controllers/oauth.controller');
+import authenticate from '../middlewares/authenticate.js';
+import * as authController from '../controllers/auth.controller.js';
+import * as oauthController from '../controllers/oauth.controller.js';
 
 // ──────────────────────────────────────────────────────────────
 // Auth Routes — /api/v1/auth
@@ -40,4 +40,4 @@ router.delete('/oauth/unlink/:id', authenticate, oauthController.unlinkOAuthAcco
 // Maps to: OWASP A05:2021 – Security Misconfiguration
 // PortSwigger – Cross-Site Request Forgery (CSRF)
 
-module.exports = router;
+export default router;

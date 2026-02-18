@@ -1,7 +1,7 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const authorize = require('../middlewares/authorize');
-const exportController = require('../controllers/export.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import authorize from '../middlewares/authorize.js';
+import * as exportController from '../controllers/export.controller.js';
 
 const router = Router();
 
@@ -23,4 +23,4 @@ router.get('/invoices/:orderId', authenticate, exportController.generateInvoice)
 // VULNERABLE: IDOR — no ownership check
 router.get('/invoices/:orderId/pdf', authenticate, exportController.generateInvoicePdf);
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 // ──────────────────────────────────────────────────────────────
 // Order Controller
@@ -440,7 +440,7 @@ async function listVendorOrders(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     checkout,
     listOrders,
     getOrder,

@@ -4,7 +4,7 @@
 // In production, this would use Nodemailer or similar.
 // ──────────────────────────────────────────────────────────────
 
-const { createAuditLog } = require('./auditLog');
+import { createAuditLog } from './auditLog.js';
 
 /**
  * Send a mock email.
@@ -94,7 +94,7 @@ async function sendVerificationEmail({ to, verificationToken, req }) {
     return sendEmail({ to, subject: 'Verify Your Email', body, req });
 }
 
-module.exports = {
+export {
     sendEmail,
     sendOrderConfirmation,
     sendPasswordResetEmail,

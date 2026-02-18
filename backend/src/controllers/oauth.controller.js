@@ -1,6 +1,6 @@
-const { prisma } = require('../config/db');
-const { generateAccessToken, generateRefreshToken } = require('../utils/jwt');
-const { createAuditLog } = require('../utils/auditLog');
+import { prisma } from '../config/db.js';
+import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 // ──────────────────────────────────────────────────────────────
 // OAuth Controller (Google)
@@ -283,7 +283,7 @@ async function unlinkOAuthAccount(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     googleLogin,
     googleCallback,
     linkOAuthAccount,

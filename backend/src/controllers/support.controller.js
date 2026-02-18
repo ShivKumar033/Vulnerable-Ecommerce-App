@@ -1,5 +1,5 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 // ──────────────────────────────────────────────────────────────
 // Support Controller (Read-Only Access)
@@ -171,7 +171,7 @@ async function viewUser(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     viewOrders,
     viewOrder,
     viewUsers,

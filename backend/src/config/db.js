@@ -1,6 +1,7 @@
-const { PrismaClient } = require('@prisma/client')
-const { PrismaPg } = require('@prisma/adapter-pg')
-const { Pool } = require('pg')
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
+const { Pool } = pg;
 
 // Create a PostgreSQL connection pool
 const pool = new Pool({
@@ -47,4 +48,4 @@ async function disconnectDB() {
   }
 }
 
-module.exports = { prisma, connectDB, disconnectDB }
+export { prisma, connectDB, disconnectDB };

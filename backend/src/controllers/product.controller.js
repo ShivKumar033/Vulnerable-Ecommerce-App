@@ -1,6 +1,8 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
-const path = require('path');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import path from 'path';
+import http from 'http';
+import https from 'https';
 
 // ──────────────────────────────────────────────────────────────
 // Product Controller
@@ -468,10 +470,10 @@ async function fetchProductImageFromUrl(req, res, next) {
         // Attacker can supply internal URLs (http://169.254.169.254, http://localhost:6379, etc.)
         // Maps to: OWASP A10:2021 – Server-Side Request Forgery
         // PortSwigger – SSRF
-        const http = imageUrl.startsWith('https') ? require('https') : require('http');
+        const validHttp = imageUrl.startsWith('https') ? https : http;
 
         const fetchPromise = new Promise((resolve, reject) => {
-            http.get(imageUrl, (response) => {
+            validHttp.get(imageUrl, (response) => {
                 const chunks = [];
                 response.on('data', (chunk) => chunks.push(chunk));
                 response.on('end', () => {
@@ -518,7 +520,7 @@ async function fetchProductImageFromUrl(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     listProducts,
     getProduct,
     createProduct,

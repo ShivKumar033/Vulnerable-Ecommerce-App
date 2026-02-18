@@ -1,15 +1,20 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const cookieParser = require('cookie-parser');
-const path = require('path');
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Database client (connection established in server.js)
-const { prisma } = require('./config/db');
+import { prisma } from './config/db.js';
 
 const app = express();
 
@@ -81,29 +86,29 @@ app.get('/api/health', (req, res) => {
 // ---------------------------------------------------------------------------
 
 // Phase 3: Core features
-app.use('/api/v1/auth', require('./routes/auth.routes'));
-app.use('/api/v1/products', require('./routes/product.routes'));
-app.use('/api/v1/cart', require('./routes/cart.routes'));
-app.use('/api/v1/orders', require('./routes/order.routes'));
-app.use('/api/v1/payments', require('./routes/payment.routes'));
+app.use('/api/v1/auth', (await import('./routes/auth.routes.js')).default);
+app.use('/api/v1/products', (await import('./routes/product.routes.js')).default);
+app.use('/api/v1/cart', (await import('./routes/cart.routes.js')).default);
+app.use('/api/v1/orders', (await import('./routes/order.routes.js')).default);
+app.use('/api/v1/payments', (await import('./routes/payment.routes.js')).default);
 
 // Phase 4: User account management, categories, reviews
-app.use('/api/v1/users', require('./routes/user.routes'));
-app.use('/api/v1/categories', require('./routes/category.routes'));
-app.use('/api/v1/reviews', require('./routes/review.routes'));
+app.use('/api/v1/users', (await import('./routes/user.routes.js')).default);
+app.use('/api/v1/categories', (await import('./routes/category.routes.js')).default);
+app.use('/api/v1/reviews', (await import('./routes/review.routes.js')).default);
 
 // Phase 5: Admin, support, webhooks, export/import, wallet
-app.use('/api/v1/admin', require('./routes/admin.routes'));
-app.use('/api/v1/support', require('./routes/support.routes'));
-app.use('/api/v1/webhooks', require('./routes/webhook.routes'));
-app.use('/api/v1/export', require('./routes/export.routes'));
-app.use('/api/v1/import', require('./routes/import.routes'));
-app.use('/api/v1/wallet', require('./routes/wallet.routes'));
+app.use('/api/v1/admin', (await import('./routes/admin.routes.js')).default);
+app.use('/api/v1/support', (await import('./routes/support.routes.js')).default);
+app.use('/api/v1/webhooks', (await import('./routes/webhook.routes.js')).default);
+app.use('/api/v1/export', (await import('./routes/export.routes.js')).default);
+app.use('/api/v1/import', (await import('./routes/import.routes.js')).default);
+app.use('/api/v1/wallet', (await import('./routes/wallet.routes.js')).default);
 
 // VULNERABLE: Legacy API v2 — no authentication on most endpoints
 // Maps to: OWASP A01:2021 – Broken Access Control
 // Maps to: OWASP A05:2021 – Security Misconfiguration
-app.use('/api/v2', require('./routes/legacy.routes'));
+app.use('/api/v2', (await import('./routes/legacy.routes.js')).default);
 
 // ---------------------------------------------------------------------------
 // 404 Handler
@@ -131,4 +136,4 @@ app.use((err, req, res, _next) => {
     });
 });
 
-module.exports = app;
+export default app;

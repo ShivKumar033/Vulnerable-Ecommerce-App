@@ -1,7 +1,7 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
-const { hashPassword } = require('../utils/password');
-const crypto = require('crypto');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import { hashPassword, comparePassword } from '../utils/password.js';
+import crypto from 'crypto';
 
 // ──────────────────────────────────────────────────────────────
 // User Account Management Controller
@@ -138,7 +138,7 @@ async function changePassword(req, res, next) {
             });
         }
 
-        const { comparePassword } = require('../utils/password');
+        // const { comparePassword } = require('../utils/password'); // Imported at top
         const isValid = await comparePassword(currentPassword, user.password);
         if (!isValid) {
             return res.status(401).json({ status: 'error', message: 'Current password is incorrect.' });
@@ -674,7 +674,7 @@ async function getDashboard(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     getProfile,
     updateProfile,
     changePassword,

@@ -1,6 +1,6 @@
-const { Router } = require('express');
-const authenticate = require('../middlewares/authenticate');
-const reviewController = require('../controllers/review.controller');
+import { Router } from 'express';
+import authenticate from '../middlewares/authenticate.js';
+import * as reviewController from '../controllers/review.controller.js';
 
 const router = Router();
 
@@ -19,4 +19,4 @@ router.post('/product/:productId', authenticate, reviewController.createReview);
 router.put('/:id', authenticate, reviewController.updateReview);
 router.delete('/:id', authenticate, reviewController.deleteReview);
 
-module.exports = router;
+export default router;

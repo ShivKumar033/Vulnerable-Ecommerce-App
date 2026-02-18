@@ -1,6 +1,6 @@
-const { prisma } = require('../config/db');
-const { createAuditLog } = require('../utils/auditLog');
-const crypto = require('crypto');
+import { prisma } from '../config/db.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import crypto from 'crypto';
 
 // ──────────────────────────────────────────────────────────────
 // Payment Controller (Mock Stripe-style)
@@ -302,7 +302,7 @@ async function refundPayment(req, res, next) {
     }
 }
 
-module.exports = {
+export {
     chargePayment,
     getPaymentDetails,
     refundPayment,

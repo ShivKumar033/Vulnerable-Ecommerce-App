@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+import bcrypt from 'bcryptjs';
 
 // ──────────────────────────────────────────────────────────────
 // Password Utilities
@@ -27,4 +27,4 @@ async function comparePassword(plainPassword, hashedPassword) {
     return bcrypt.compare(plainPassword, hashedPassword);
 }
 
-module.exports = { hashPassword, comparePassword };
+export { hashPassword, comparePassword };
