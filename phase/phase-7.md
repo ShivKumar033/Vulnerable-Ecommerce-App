@@ -11,6 +11,7 @@ with step-by-step exploitation for:
 - webhook forgery
 - legacy API abuse
 - SSRF
+- and Other Vulnerabilities mentioned in MASTER_PROMPT.md 
 Include curl & Burp examples.
 
 

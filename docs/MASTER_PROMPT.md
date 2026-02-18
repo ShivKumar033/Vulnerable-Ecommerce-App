@@ -22,7 +22,7 @@ Backend:
 - Redis (optional, but recommended for cart/session)
 
 Frontend:
-- React (Vite)
+- React (Vite & Tailwind CSS)
 - Axios
 - Context API
 - Protected & role-based routes
@@ -170,6 +170,13 @@ ADVANCED INDUSTRY FEATURES (MANDATORY)
 Add the following features in a REALISTIC, production-style way:
 
 1. RACE CONDITION-PRONE WORKFLOWS
+- Double-Spend on Wallet / Store Credit
+- Coupon Reuse Race Condition
+- Multiple Order Placement for Single Payment
+- Inventory Overselling (Stock Depletion Race)
+- Refund Issued Multiple Times
+- Loyalty Points Double Credit
+- Gift Card Balance Race Condition
 - Concurrent checkout flow
 - Stock reservation race condition
 - Order creation without proper transaction locking

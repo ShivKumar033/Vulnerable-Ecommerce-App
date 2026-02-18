@@ -3,8 +3,6 @@
 Follow docs/MASTER_PROMPT.md exactly.
 
 Modify frontend to:
-- trust prices from backend blindly
-- rely on client-side role checks
 - store JWT in localStorage
 
 
