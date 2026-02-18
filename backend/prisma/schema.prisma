@@ -72,6 +72,7 @@ model User {
   oauthAccounts   OAuthAccount[]
   auditLogs       AuditLog[]
   savedPayments   SavedPaymentMethod[]
+  wallet          Wallet?
 
   @@map("users")
 }
@@ -460,4 +461,44 @@ model WebhookConfig {
   updatedAt DateTime @updatedAt
 
   @@map("webhook_configs")
+}
+
+// ──────────────────────────────────────────────────────────────
+// WALLET / STORE CREDITS
+// ──────────────────────────────────────────────────────────────
+
+// VULNERABLE: Race condition — concurrent balance deductions are not serialised
+// (no SELECT … FOR UPDATE or advisory lock). Two requests can read the same
+// balance simultaneously and both succeed, overdrawing the wallet.
+// Maps to: OWASP A04:2021 – Insecure Design
+// PortSwigger – Race Conditions
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // VULNERABLE: Decimal stored as Float internally — precision issues possible
+  balance   Decimal  @default(0) @db.Decimal(12, 2)
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  // VULNERABLE: type is not constrained to an enum — attacker can set arbitrary type
+  type        String   // credit, debit, refund, adjustment
+  amount      Decimal  @db.Decimal(12, 2)
+  description String?
+  // VULNERABLE: referenceId is not validated — can point to non-existent entities
+  referenceId String?  // orderId, paymentId, etc.
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@map("wallet_transactions")
 }

@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const { createAuditLog } = require('../utils/auditLog');
+const PDFDocument = require('pdfkit');
 
 // ──────────────────────────────────────────────────────────────
 // Export / Import Controller
@@ -302,6 +303,214 @@ async function generateInvoice(req, res, next) {
 }
 
 /**
+ * GET /api/v1/export/invoices/:orderId/pdf
+ * Generate a real PDF invoice for an order using PDFKit.
+ *
+ * VULNERABLE: IDOR — no ownership check (any authenticated user can
+ * download any order's invoice).
+ * Maps to: OWASP A01:2021 – Broken Access Control
+ */
+async function generateInvoicePdf(req, res, next) {
+    try {
+        const { orderId } = req.params;
+
+        // VULNERABLE: IDOR — no ownership check
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: { select: { id: true, email: true, firstName: true, lastName: true } },
+                items: {
+                    include: { product: { select: { id: true, title: true, price: true } } },
+                },
+                address: true,
+                payment: true,
+                coupon: true,
+            },
+        });
+
+        if (!order) {
+            return res.status(404).json({ status: 'error', message: 'Order not found.' });
+        }
+
+        // Create PDF document
+        const doc = new PDFDocument({ margin: 50 });
+
+        // Set response headers for PDF download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="invoice-${order.orderNumber}.pdf"`
+        );
+
+        // Pipe directly to response
+        doc.pipe(res);
+
+        // ── Header ──────────────────────────────────────
+        doc
+            .fontSize(24)
+            .text('INVOICE', { align: 'center' })
+            .moveDown(0.5);
+
+        doc
+            .fontSize(10)
+            .fillColor('#666')
+            .text('Vulnerable E-Commerce Platform', { align: 'center' })
+            .text('For Security Testing Purposes Only', { align: 'center' })
+            .moveDown(1);
+
+        // ── Invoice metadata ────────────────────────────
+        doc
+            .fillColor('#000')
+            .fontSize(12)
+            .text(`Invoice #: INV-${order.orderNumber}`)
+            .text(`Date: ${order.createdAt.toISOString().split('T')[0]}`)
+            .text(`Order #: ${order.orderNumber}`)
+            .text(`Status: ${order.status}`)
+            .moveDown(1);
+
+        // ── Customer info ───────────────────────────────
+        const customerName = `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim() || 'N/A';
+        doc
+            .fontSize(12)
+            .text('Bill To:', { underline: true })
+            .fontSize(10)
+            .text(customerName)
+            .text(order.user?.email || '');
+
+        if (order.address) {
+            doc
+                .text(order.address.street || '')
+                .text(
+                    `${order.address.city || ''}, ${order.address.state || ''} ${order.address.zipCode || ''}`
+                )
+                .text(order.address.country || '');
+        }
+        doc.moveDown(1);
+
+        // ── Items table ─────────────────────────────────
+        doc
+            .fontSize(12)
+            .text('Items:', { underline: true })
+            .moveDown(0.5);
+
+        // Table header
+        const tableTop = doc.y;
+        const col1 = 50;   // Product
+        const col2 = 280;  // Qty
+        const col3 = 340;  // Unit Price
+        const col4 = 430;  // Total
+
+        doc
+            .fontSize(9)
+            .font('Helvetica-Bold')
+            .text('Product', col1, tableTop)
+            .text('Qty', col2, tableTop)
+            .text('Unit Price', col3, tableTop)
+            .text('Total', col4, tableTop);
+
+        doc
+            .moveTo(col1, tableTop + 14)
+            .lineTo(530, tableTop + 14)
+            .stroke();
+
+        // Table rows
+        let y = tableTop + 20;
+        doc.font('Helvetica');
+
+        for (const item of order.items) {
+            const productTitle = item.product?.title || 'N/A';
+            const unitPrice = parseFloat(item.price);
+            const lineTotal = unitPrice * item.quantity;
+
+            doc
+                .fontSize(9)
+                .text(productTitle.substring(0, 40), col1, y, { width: 220 })
+                .text(String(item.quantity), col2, y)
+                .text(`$${unitPrice.toFixed(2)}`, col3, y)
+                .text(`$${lineTotal.toFixed(2)}`, col4, y);
+
+            y += 18;
+
+            // Add a new page if needed
+            if (y > 700) {
+                doc.addPage();
+                y = 50;
+            }
+        }
+
+        // Separator
+        doc
+            .moveTo(col1, y + 5)
+            .lineTo(530, y + 5)
+            .stroke();
+        y += 15;
+
+        // ── Totals ──────────────────────────────────────
+        const totals = [
+            ['Subtotal', order.subtotal],
+            ['Tax', order.tax],
+            ['Shipping', order.shippingCost],
+            ['Discount', order.discount ? `-${order.discount}` : '0.00'],
+        ];
+
+        for (const [label, value] of totals) {
+            doc
+                .fontSize(10)
+                .text(label, col3, y)
+                .text(`$${parseFloat(value).toFixed(2)}`, col4, y);
+            y += 16;
+        }
+
+        y += 5;
+        doc
+            .font('Helvetica-Bold')
+            .fontSize(12)
+            .text('TOTAL', col3, y)
+            .text(`$${parseFloat(order.totalAmount).toFixed(2)}`, col4, y);
+
+        doc.font('Helvetica');
+        y += 25;
+
+        // ── Payment info ────────────────────────────────
+        if (order.payment) {
+            doc
+                .fontSize(10)
+                .text(`Payment Status: ${order.payment.status}`, col1, y)
+                .text(`Payment Method: ${order.payment.paymentMethod || 'N/A'}`, col1, y + 14);
+            y += 35;
+        }
+
+        if (order.coupon) {
+            doc.text(`Coupon Applied: ${order.coupon.code}`, col1, y);
+            y += 20;
+        }
+
+        // ── Footer ──────────────────────────────────────
+        doc
+            .moveDown(3)
+            .fontSize(8)
+            .fillColor('#999')
+            .text('This invoice was generated automatically.', col1, 750, { align: 'center' })
+            .text('Vulnerable E-Commerce Platform — Security Testing Only', { align: 'center' });
+
+        // Finalize PDF
+        doc.end();
+
+        await createAuditLog({
+            userId: req.user?.id || null,
+            action: 'INVOICE_PDF_GENERATED',
+            entity: 'Order',
+            entityId: orderId,
+            req,
+        });
+
+        // Note: response is streamed via doc.pipe(res), no explicit return needed
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
  * GET /api/v1/export/audit-logs
  * Export audit logs as CSV.
  */
@@ -338,5 +547,6 @@ module.exports = {
     exportProductsCsv,
     importProductsCsv,
     generateInvoice,
+    generateInvoicePdf,
     exportAuditLogsCsv,
 };

@@ -19,4 +19,8 @@ router.get('/audit-logs', authenticate, authorize('ADMIN'), exportController.exp
 // VULNERABLE: IDOR — no ownership check, SSRF via templateUrl
 router.get('/invoices/:orderId', authenticate, exportController.generateInvoice);
 
+// PDF invoice generation
+// VULNERABLE: IDOR — no ownership check
+router.get('/invoices/:orderId/pdf', authenticate, exportController.generateInvoicePdf);
+
 module.exports = router;

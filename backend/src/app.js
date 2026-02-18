@@ -92,12 +92,13 @@ app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/categories', require('./routes/category.routes'));
 app.use('/api/v1/reviews', require('./routes/review.routes'));
 
-// Phase 5: Admin, support, webhooks, export/import
+// Phase 5: Admin, support, webhooks, export/import, wallet
 app.use('/api/v1/admin', require('./routes/admin.routes'));
 app.use('/api/v1/support', require('./routes/support.routes'));
 app.use('/api/v1/webhooks', require('./routes/webhook.routes'));
 app.use('/api/v1/export', require('./routes/export.routes'));
 app.use('/api/v1/import', require('./routes/import.routes'));
+app.use('/api/v1/wallet', require('./routes/wallet.routes'));
 
 // VULNERABLE: Legacy API v2 — no authentication on most endpoints
 // Maps to: OWASP A01:2021 – Broken Access Control
