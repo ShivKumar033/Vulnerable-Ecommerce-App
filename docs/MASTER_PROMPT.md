@@ -43,7 +43,7 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
 - Email verification (mock)
 - Password reset flow (mock)
 
-2. USER ACCOUNT MANAGEMENT
+2. USER ACCOUNT MANAGEMENT 
 - Each Roles have own dashboard (User, Admin, Vendor, Support)
 - Profile update
 - Multiple saved addresses
@@ -143,229 +143,89 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
 - and other features
 
 --------------------------------------------------
-INTENTIONAL SECURITY VULNERABILITIES (MANDATORY)
---------------------------------------------------
-
-Implement AT LEAST 35 REALISTIC SECURITY VULNERABILITIES.
-
-Each vulnerability must:
-- Be exploitable
-- Not break core functionality
-- Be commented clearly in code
-- Map to OWASP Web or API Top 10
-
-OAUTH / SOCIAL LOGIN VULNERABILITIES
-
-- OAuth misconfiguration allowing account takeover
-- Missing state parameter validation (CSRF in OAuth)
-- Email trust issue (attacker registers same email)
-- OAuth token not verified against provider
-- Insecure OAuth callback handling
-- OAuth account linking without re-authentication
-- Ability to bind OAuth account to existing victim account
-
---------------------------------------------------
-ADVANCED INDUSTRY FEATURES (MANDATORY)
+REQUIRED VULNERABILITY CATEGORIES (MANDATORY)
 --------------------------------------------------
 Add the following features in a REALISTIC, production-style way:
 
-1. RACE CONDITION-PRONE WORKFLOWS
-- Double-Spend on Wallet / Store Credit
+Implementing Rules:
+- Each Vulnerabilites must Be Exploitable
+- Do NOT auto-fix vulnerabilities and Must not break core functionality
+- Vulnerabilities must look accidental, exploitable and realistic
+- Comment vulnerable code as:
+  // VULNERABLE: very short <description>
+- App must be working functionaly normally
+- Do not add any extra comments or explanations
+
+  
+1. AUTHENTICATION & AUTHORIZATION & SESSION
+- Session management flaws
+- JWT claim tampering
+- Password reset token reuse ( and also have Host header injection vulnerability )
+- IDOR in orders, invoices, address
+- missing role checks
+- mass assignment
+- Vendor horizontal privilege escalation
+- Vertical Privilege Escalation (Vendor -> Admin) (Support -> Vendor) (Support -> Admin)
+
+2. CROSS-SITE SCRIPTING (XSS)
+- Stored XSS (in product reviews)
+- Reflected XSS (in address section only for 1 address fields)
+- DOM XSS (in client-side code that handles user input)
+
+3. INJECTION VULNERABILITIES
+- SQL injection (in invoice) (in product delete) (in product update) 
+- Blind SQL injection (in order history)
+- Server-Side Template Injection (SSTI) (in user profile) (in vendor profile)
+
+4. FILE UPLOAD VULNERABILITIES (MANDATORY)
+- Unrestricted file upload (in product image) 
+- MIME bypass (in product image)
+
+5. OAUTH / SOCIAL LOGIN VULNERABILITIES
+- OAuth misconfiguration allowing account takeover
+- Email trust issue (attacker registers same email)
+- OAuth account linking without re-authentication
+- redirect_uri validation bypass
+
+6. RACE CONDITION-PRONE WORKFLOWS
+- Double-Spend on Store Credit and double-add store credit (double-add is must)
 - Coupon Reuse Race Condition
 - Multiple Order Placement for Single Payment
 - Inventory Overselling (Stock Depletion Race)
 - Refund Issued Multiple Times
 - Loyalty Points Double Credit
 - Gift Card Balance Race Condition
-- Concurrent checkout flow
-- Stock reservation race condition
 - Order creation without proper transaction locking
 - Allow double-spend scenarios under high concurrency
 
-2. WEBHOOK SYSTEM (PAYMENT & ORDER)
+7. WEBHOOK SYSTEM (PAYMENT & ORDER)
 - `/api/v1/webhooks/payment`
-- Weak signature verification
-- No replay protection
 - Trust webhook payload blindly
+- no replay protection
+- Unauthorized Order Status Update
+- Duplicate Payment Notification Replay
+- Fake Shipment Confirmation
+- Fake Return Confirmation
+- Fake Refund Confirmation
 
-3. LEGACY API VERSIONS
-- Maintain `/api/v1` and `/api/v2`
-- `/api/v2` missing:
-  - authorization checks
-  - input validation
-  - rate limiting
-- Legacy endpoints must still be functional
+8. BUSINESS LOGIC
+- Payment replay (in checkout)
 
-4. SERVER-SIDE REQUEST FORGERY (SSRF)
+9. API & CONFIGURATION
+- Missing rate limiting 
+- CORS misconfiguration 
+- Maintain `/api/v1` and `/api/v2` Vulnerable API 
+
+10. SSRF & INTERNAL ACCESS
+- Webhook SSRF
 - Product image fetch via URL
 - Invoice PDF generation using remote resources
 - Webhook destination URL configurable by admin
 - No allowlist or URL validation
 
---------------------------------------------------
-REQUIRED VULNERABILITY CATEGORIES
---------------------------------------------------
-
-AUTHENTICATION & SESSION
-- Weak JWT secret
-- JWT claim tampering
-- Algorithm confusion
-- Token reuse
-- Account enumeration
-- Password reset token reuse
-
-AUTHORIZATION (IDOR / BOLA / PRIV ESC)
-- IDOR in profiles, orders, invoices
-- Vendor horizontal privilege escalation
-- Missing role checks
-- Mass assignment
-- Client-side-only authorization
-
-INPUT VALIDATION & XSS
-- Stored XSS
-- Reflected XSS
-- DOM XSS
-- HTML injection
-
-INJECTION
-- SQL injection
-- Blind SQL injection
-- CSV injection
-
-FILE HANDLING
-- Unrestricted file upload
-- MIME bypass
-- Web shell upload
-
-BUSINESS LOGIC
-- Price manipulation
-- Coupon reuse
-- Payment replay
-- Order status tampering
-- Refund abuse
-- Race condition in checkout
-
-API & CONFIGURATION
-- Excessive data exposure
-- Missing rate limiting
-- CORS misconfiguration
-- Debug mode enabled
-- Missing security headers
-
-SSRF & INTERNAL ACCESS
-- Image fetch SSRF
-- Webhook SSRF
-
---------------------------------------------------
-PORTSWIGGER WEB SECURITY ACADEMY COVERAGE (MANDATORY)
---------------------------------------------------
-
-In addition to previously defined vulnerabilities, the application
-MUST intentionally implement vulnerabilities covering ALL major
-PortSwigger Web Security Academy categories.
-
-The goal is to make this project a ONE-STOP platform for practicing
-PortSwigger-style labs in a real e-commerce environment.
-
---------------------------------------------------
-REQUIRED PORTSWIGGER VULNERABILITY CATEGORIES
---------------------------------------------------
-
-• SQL Injection
-• Authentication vulnerabilities
-• Session management flaws
-• Access control vulnerabilities
-• Business logic vulnerabilities
-• Information disclosure
-• File upload vulnerabilities
-• OS command injection
-• Server-Side Request Forgery (SSRF)
-• Cross-Site Scripting (XSS)
-  - Reflected
-  - Stored
-  - DOM-based
-• Cross-Site Request Forgery (CSRF)
-• Clickjacking
-• Cross-Origin Resource Sharing (CORS) misconfiguration
-• XML External Entity (XXE) injection
-• Server-side template injection (SSTI)
-• Insecure deserialization
-• Web cache poisoning
-• HTTP request smuggling (logical simulation)
-• OAuth authentication vulnerabilities
-• Webhook vulnerabilities
-• Host header injection
-• Open redirect
-• JWT vulnerabilities
-• Race conditions
-• API security flaws (BOLA, excessive data exposure)
-
---------------------------------------------------
-IMPLEMENTATION REQUIREMENTS
---------------------------------------------------
-
-- Each PortSwigger vulnerability must:
-  - Exist in a REALISTIC e-commerce flow
-  - Be exploitable using Burp Suite-style techniques
-  - Be clearly commented in code:
-    // VULNERABLE: PortSwigger - <category>
-
-- Vulnerabilities should be distributed across:
-  - Authentication
-  - Checkout
-  - Orders
-  - Payments
-  - Admin panel
-  - APIs
-  - File handling
-  - Webhooks
-
---------------------------------------------------
-TARGET
---------------------------------------------------
-
-Total vulnerabilities after this addition:
-✔ 45–55 real-world vulnerabilities
-✔ Covers OWASP Web + API Top 10
-✔ Covers PortSwigger Web security all-labs
-
-
---------------------------------------------------
-IMPLEMENTATION RULES
---------------------------------------------------
-- Do NOT auto-fix vulnerabilities and Must not break functionality
-- Vulnerabilities must look accidental, exploitable and realistic
-- Comment vulnerable code as:
-  // VULNERABLE: <description>
-- App must function normally
-
---------------------------------------------------
-PROJECT STRUCTURE (MANDATORY)
---------------------------------------------------
-
-Update my existing project to this structure:
-
-backend/
-├── src/
-│   ├── config/
-│   ├── models/
-│   ├── routes/
-│   ├── controllers/
-│   ├── services/
-│   ├── middlewares/
-│   ├── utils/
-│   ├── app.js
-│   └── server.js
-
-frontend/
-├── src/
-│   ├── api/
-│   ├── components/
-│   ├── pages/
-│   ├── context/
-│   ├── routes/
-│   ├── App.jsx
-│   └── main.jsx
+11. OS command injection ( In Admin Panel with Backup / log download features) ( Report generation (PDF/CSV))
+12. Cross-Site Request Forgery (CSRF) ( Implement in Add / edit address and Cancel order)
+13. XML External Entity (XXE) injection ( In product import feature ) 
 
 --------------------------------------------------
 DOCUMENTATION (REQUIRED)
