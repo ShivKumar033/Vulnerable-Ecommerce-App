@@ -1,0 +1,464 @@
+// ──────────────────────────────────────────────────────────────
+// Prisma Schema — Vulnerable E-Commerce Platform
+// ──────────────────────────────────────────────────────────────
+// Covers all models required by MASTER_PROMPT.md:
+//   Authentication, Users, Products, Cart, Orders, Payments,
+//   Reviews, Wishlists, Coupons, Audit Logs, OAuth, etc.
+// ──────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──────────────────────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+  VENDOR
+  SUPPORT
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ──────────────────────────────────────────────────────────────
+// USER & AUTHENTICATION
+// ──────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String?   // nullable for OAuth-only users
+  firstName       String?
+  lastName        String?
+  phone           String?
+  avatar          String?   // profile image URL
+  // VULNERABLE: Mass assignment — role field is writable if not guarded
+  // Maps to: OWASP A01:2021 – Broken Access Control
+  role            Role      @default(USER)
+  isEmailVerified Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  addresses       Address[]
+  products        Product[]         @relation("VendorProducts")
+  reviews         Review[]
+  orders          Order[]
+  cart            Cart?
+  wishlist        Wishlist?
+  refreshTokens   RefreshToken[]
+  resetTokens     PasswordResetToken[]
+  oauthAccounts   OAuthAccount[]
+  auditLogs       AuditLog[]
+  savedPayments   SavedPaymentMethod[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // VULNERABLE: Token reuse — no single-use enforcement, tokens never fully invalidated
+  // Maps to: OWASP A07:2021 – Identification and Authentication Failures
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // VULNERABLE: Password reset token reuse — no single-use flag
+  // Maps to: OWASP A07:2021 – Identification and Authentication Failures
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model OAuthAccount {
+  id         String   @id @default(uuid())
+  provider   String   // e.g. "google"
+  providerId String   // provider-specific user ID
+  email      String?  // email from the OAuth provider
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, providerId])
+  @@map("oauth_accounts")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ADDRESSES
+// ──────────────────────────────────────────────────────────────
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String?  // e.g. "Home", "Work"
+  fullName    String
+  addressLine1 String
+  addressLine2 String?
+  city        String
+  state       String
+  postalCode  String
+  country     String   @default("US")
+  phone       String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      Order[]
+
+  @@map("addresses")
+}
+
+// ──────────────────────────────────────────────────────────────
+// PRODUCT CATALOG
+// ──────────────────────────────────────────────────────────────
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  parentId  String?
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String?  @db.Text
+  price       Decimal  @db.Decimal(10, 2)
+  comparePrice Decimal? @db.Decimal(10, 2) // original price for "on sale"
+  stock       Int      @default(0)
+  sku         String?  @unique
+  isActive    Boolean  @default(true)
+  vendorId    String
+  vendor      User     @relation("VendorProducts", fields: [vendorId], references: [id])
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  images      ProductImage[]
+  variants    ProductVariant[]
+  reviews     Review[]
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+  wishlistItems WishlistItem[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  url       String
+  altText   String?
+  isPrimary Boolean  @default(false)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String   @id @default(uuid())
+  name      String   // e.g. "Size", "Color"
+  value     String   // e.g. "XL", "Red"
+  price     Decimal? @db.Decimal(10, 2) // override price if different
+  stock     Int      @default(0)
+  sku       String?
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("product_variants")
+}
+
+// ──────────────────────────────────────────────────────────────
+// REVIEWS
+// ──────────────────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int      // 1-5
+  // VULNERABLE: Stored XSS — comment is rendered without sanitization
+  // Maps to: OWASP A03:2021 – Injection
+  // PortSwigger – Stored XSS
+  comment   String?  @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId]) // one review per user per product
+  @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────────
+// SHOPPING CART
+// ──────────────────────────────────────────────────────────────
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  // VULNERABLE: Price manipulation — price stored at add-to-cart time,
+  // client can potentially send arbitrary price values
+  // Maps to: OWASP A04:2021 – Insecure Design
+  // PortSwigger – Business Logic Vulnerabilities
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+// ──────────────────────────────────────────────────────────────
+// WISHLIST
+// ──────────────────────────────────────────────────────────────
+
+model Wishlist {
+  id        String         @id @default(uuid())
+  userId    String         @unique
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+  @@map("wishlist_items")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ORDERS & CHECKOUT
+// ──────────────────────────────────────────────────────────────
+
+model Order {
+  id            String      @id @default(uuid())
+  orderNumber   String      @unique @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  addressId     String?
+  address       Address?    @relation(fields: [addressId], references: [id])
+  // VULNERABLE: Order status tampering — status can be changed via API
+  // Maps to: OWASP A01:2021 – Broken Access Control
+  // PortSwigger – Business Logic Vulnerabilities
+  status        OrderStatus @default(PENDING)
+  subtotal      Decimal     @db.Decimal(10, 2)
+  tax           Decimal     @default(0) @db.Decimal(10, 2)
+  shippingCost  Decimal     @default(0) @db.Decimal(10, 2)
+  discount      Decimal     @default(0) @db.Decimal(10, 2)
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  couponId      String?
+  coupon        Coupon?     @relation(fields: [couponId], references: [id])
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items         OrderItem[]
+  payment       Payment?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2) // price at time of order
+  createdAt DateTime @default(now())
+
+  @@map("order_items")
+}
+
+// ──────────────────────────────────────────────────────────────
+// PAYMENTS
+// ──────────────────────────────────────────────────────────────
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @unique
+  order         Order         @relation(fields: [orderId], references: [id])
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDING)
+  // Mock Stripe-style fields
+  paymentIntent String?       @unique // mock payment intent ID
+  paymentMethod String?       // e.g. "card", "mock_stripe"
+  providerId    String?       // external payment provider reference
+  // VULNERABLE: Payment replay — no idempotency key enforcement
+  // Maps to: OWASP A04:2021 – Insecure Design
+  // PortSwigger – Business Logic Vulnerabilities
+  metadata      Json?         // arbitrary payment metadata
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model SavedPaymentMethod {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "card", "bank_account"
+  last4     String   // last 4 digits
+  brand     String?  // "visa", "mastercard"
+  expMonth  Int?
+  expYear   Int?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("saved_payment_methods")
+}
+
+// ──────────────────────────────────────────────────────────────
+// COUPONS
+// ──────────────────────────────────────────────────────────────
+
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  description     String?
+  discountType    String   @default("percentage") // "percentage" or "fixed"
+  discountValue   Decimal  @db.Decimal(10, 2)
+  minOrderAmount  Decimal? @db.Decimal(10, 2)
+  maxUses         Int?     // null = unlimited
+  currentUses     Int      @default(0)
+  // VULNERABLE: Coupon reuse — no per-user usage tracking
+  // Maps to: OWASP A04:2021 – Insecure Design
+  // PortSwigger – Business Logic Vulnerabilities
+  isActive        Boolean  @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders          Order[]
+
+  @@map("coupons")
+}
+
+// ──────────────────────────────────────────────────────────────
+// AUDIT LOGGING
+// ──────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // e.g. "LOGIN", "ORDER_CREATED", "PRODUCT_UPDATED"
+  entity    String?  // e.g. "User", "Order", "Product"
+  entityId  String?  // ID of the affected entity
+  // VULNERABLE: Excessive data exposure in audit logs — stores full request details
+  // Maps to: OWASP A03:2021 – Injection (CSV injection in exported logs)
+  metadata  Json?    // arbitrary metadata (IP, user-agent, request body)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────────────────────
+// FEATURE FLAGS & RUNTIME CONFIG
+// ──────────────────────────────────────────────────────────────
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+// ──────────────────────────────────────────────────────────────
+// WEBHOOK CONFIGURATION
+// ──────────────────────────────────────────────────────────────
+
+model WebhookConfig {
+  id        String   @id @default(uuid())
+  // VULNERABLE: SSRF — webhook destination URL is admin-configurable with no validation
+  // Maps to: OWASP A10:2021 – Server-Side Request Forgery
+  // PortSwigger – SSRF
+  url       String
+  events    String[] // array of event types to listen for
+  secret    String?  // shared secret for signature verification
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("webhook_configs")
+}
