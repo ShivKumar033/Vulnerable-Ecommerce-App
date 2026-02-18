@@ -1,3 +1,4 @@
+const http = require('http');
 const app = require('./app');
 const { connectDB, disconnectDB } = require('./config/db');
 
@@ -6,11 +7,15 @@ const PORT = process.env.PORT || 5000;
 // ──────────────────────────────────────────────────────────────
 // Start server with database connection
 // ──────────────────────────────────────────────────────────────
+
+// Create HTTP server explicitly (keeps event loop alive reliably with Express 5)
+const server = http.createServer(app);
+
 async function startServer() {
     // Attempt database connection
     const dbConnected = await connectDB();
-
-    const server = app.listen(PORT, () => {
+ 
+    server.listen(PORT, () => {
         console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
@@ -25,20 +30,22 @@ async function startServer() {
 ╚═══════════════════════════════════════════════════════════════╝
     `);
     });
-
-    // Graceful shutdown
-    const shutdown = async (signal) => {
-        console.log(`${signal} received. Shutting down gracefully...`);
-        await disconnectDB();
-        server.close(() => {
-            console.log('Server closed.');
-            process.exit(0);
-        });
-    };
-
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
 }
+
+// ──────────────────────────────────────────────────────────────
+// Graceful shutdown
+// ──────────────────────────────────────────────────────────────
+const shutdown = async (signal) => {
+    console.log(`${signal} received. Shutting down gracefully...`);
+    await disconnectDB();
+    server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+    });
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // ──────────────────────────────────────────────────────────────
 // Error handlers
@@ -59,4 +66,3 @@ process.on('uncaughtException', (error) => {
 
 // Start it up
 startServer();
-
