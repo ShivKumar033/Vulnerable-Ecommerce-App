@@ -1,49 +1,50 @@
-const { PrismaClient } = require('./generated/prisma');
+const { PrismaClient } = require('@prisma/client')
+const { PrismaPg } = require('@prisma/adapter-pg')
+const { Pool } = require('pg')
 
-// Singleton Prisma client instance
-// Prevents multiple connections during hot-reloading in development
-let prisma;
+// Create a PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+})
 
-if (process.env.NODE_ENV === 'production') {
-    prisma = new PrismaClient({
-        log: ['error'],
-    });
-} else {
-    // In development, reuse the client across hot-reloads
-    if (!global.__prisma) {
-        global.__prisma = new PrismaClient({
-            // VULNERABLE: Verbose logging in development exposes query details
-            // Maps to: OWASP A05:2021 – Security Misconfiguration
-            // PortSwigger – Information Disclosure
-            log: ['query', 'info', 'warn', 'error'],
-        });
-    }
-    prisma = global.__prisma;
+// Create the Prisma adapter
+const adapter = new PrismaPg(pool)
+
+const prisma =
+  globalThis.prisma ??
+  new PrismaClient({
+    adapter,
+    log:
+      process.env.NODE_ENV === 'production'
+        ? ['error']
+        : ['query', 'info', 'warn', 'error'],
+  })
+
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = prisma
 }
 
-/**
- * Connect to the database and log status.
- * Called during server startup.
- */
 async function connectDB() {
-    try {
-        await prisma.$connect();
-        console.log('✅ Database connected successfully');
-        return true;
-    } catch (error) {
-        console.error('❌ Database connection failed:', error.message);
-        // VULNERABLE: Not exiting on DB failure – app runs without database
-        // which can lead to inconsistent state or bypass of DB-based auth
-        return false;
-    }
+  try {
+    await prisma.$connect()
+    console.log('✅ Database connected successfully')
+    return true
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message)
+    console.error('⚠️  Server will start without database connectivity.')
+    return false
+  }
 }
 
-/**
- * Gracefully disconnect from the database.
- */
 async function disconnectDB() {
-    await prisma.$disconnect();
-    console.log('📦 Database disconnected');
+  try {
+    await prisma.$disconnect()
+    await pool.end()
+    console.log('📦 Database disconnected')
+  } catch (err) {
+    console.error('⚠️  Error disconnecting database:', err.message)
+  }
 }
 
-module.exports = { prisma, connectDB, disconnectDB };
+module.exports = { prisma, connectDB, disconnectDB }
