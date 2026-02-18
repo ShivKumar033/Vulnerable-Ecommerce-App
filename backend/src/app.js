@@ -77,17 +77,32 @@ app.get('/api/health', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// API Routes — Phase 3: Core Backend Logic
+// API Routes — Core Backend Logic
 // ---------------------------------------------------------------------------
+
+// Phase 3: Core features
 app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/products', require('./routes/product.routes'));
 app.use('/api/v1/cart', require('./routes/cart.routes'));
 app.use('/api/v1/orders', require('./routes/order.routes'));
 app.use('/api/v1/payments', require('./routes/payment.routes'));
 
-// Placeholder for future phases
-// app.use('/api/v1/users', require('./routes/user.routes'));
-// app.use('/api/v1/admin', require('./routes/admin.routes'));
+// Phase 4: User account management, categories, reviews
+app.use('/api/v1/users', require('./routes/user.routes'));
+app.use('/api/v1/categories', require('./routes/category.routes'));
+app.use('/api/v1/reviews', require('./routes/review.routes'));
+
+// Phase 5: Admin, support, webhooks, export/import
+app.use('/api/v1/admin', require('./routes/admin.routes'));
+app.use('/api/v1/support', require('./routes/support.routes'));
+app.use('/api/v1/webhooks', require('./routes/webhook.routes'));
+app.use('/api/v1/export', require('./routes/export.routes'));
+app.use('/api/v1/import', require('./routes/import.routes'));
+
+// VULNERABLE: Legacy API v2 — no authentication on most endpoints
+// Maps to: OWASP A01:2021 – Broken Access Control
+// Maps to: OWASP A05:2021 – Security Misconfiguration
+app.use('/api/v2', require('./routes/legacy.routes'));
 
 // ---------------------------------------------------------------------------
 // 404 Handler

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middlewares/authenticate');
 const authController = require('../controllers/auth.controller');
+const oauthController = require('../controllers/oauth.controller');
 
 // ──────────────────────────────────────────────────────────────
 // Auth Routes — /api/v1/auth
@@ -16,6 +17,23 @@ router.post('/reset-password', authController.resetPassword);
 
 // Protected routes
 router.post('/logout', authenticate, authController.logout);
+
+// ──────────────────────────────────────────────────────────────
+// OAuth Routes — Google
+// ──────────────────────────────────────────────────────────────
+
+// VULNERABLE: Missing state parameter — no CSRF protection in OAuth flow
+// Maps to: PortSwigger – OAuth authentication vulnerabilities
+router.get('/google', oauthController.googleLogin);
+router.get('/google/callback', oauthController.googleCallback);
+
+// OAuth account linking (authenticated)
+// VULNERABLE: Account linking without re-authentication
+// Maps to: PortSwigger – OAuth authentication vulnerabilities
+router.post('/oauth/link', authenticate, oauthController.linkOAuthAccount);
+
+// VULNERABLE: IDOR — no ownership check on unlink
+router.delete('/oauth/unlink/:id', authenticate, oauthController.unlinkOAuthAccount);
 
 // VULNERABLE: No CSRF protection on any of these endpoints.
 // Cross-origin requests can trigger login/register/password reset.
