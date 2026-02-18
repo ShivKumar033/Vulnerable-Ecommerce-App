@@ -44,18 +44,29 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
 - Password reset flow (mock)
 
 2. USER ACCOUNT MANAGEMENT 
+- Loyalty points balance & history (earn on purchase, view log)
+- Store credit wallet (add, deduct,balance, usage history)
+- Gift card purchase & redemption
+- Return/refund request flow (submit, track status)
+- Order tracking timeline page (visual status steps)
+- Saved payment methods (mock)
+- OAuth account linking ("Link Google Account")
+- Profile with bio/display name fields (template-rendered)
 - Each Roles have own dashboard (User, Admin, Vendor, Support)
+- Account deletion request
 - Profile update
 - Multiple saved addresses
 - Order history
 - Wishlist
-- Saved payment methods (mock)
 - and other features
 
 3. PRODUCT & CATALOG SYSTEM
 - Product CRUD (admin/vendor)
 - Category & sub-category hierarchy
 - Product variants (size, color)
+- Product image add via URL (not just file upload)
+- Product XML import (admin/vendor UI)
+- Product CSV import/export (admin/vendor UI)
 - Product images upload
 - Product reviews & ratings
 - Advanced search:
@@ -67,14 +78,24 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
 - and other features
 
 4. SHOPPING CART & INVENTORY LOGIC
+- Coupon usage tracking with per-user limit enforcement
+- Gift card balance check & redemption at cart
+- Store credit apply at cart
+- Loyalty points redemption at cart
 - Persistent cart (DB or Redis)
 - Real-time stock validation
 - Stock reservation during checkout
 - Stock release on timeout or cancellation
 - Allow concurrency issues intentionally
+- Guest cart (no login required)
 - and other features
 
 5. CHECKOUT, ORDERS & PAYMENTS
+- Refund request, approval & payout flow
+- Refund lifecycle: Requested → Approved → Refunded
+- Invoice detail page with PDF download per order
+- Order history page with search/filter query parameter
+- Address add/edit form (with unsanitized field rendering)
 - Multi-step checkout flow
 - Address selection
 - Coupon application
@@ -86,13 +107,23 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
   - Delivered
   - Cancelled
 - Mock Stripe-style payment flow:
-  - payment intent
-  - payment confirmation
-  - webhook simulation
+  - payment intent creation endpoint 
+  - payment confirmation endpoint
+  - webhook simulation endpoint
 - and other features
 
 6. ADMIN & VENDOR DASHBOARDS
 - Admin dashboard:
+  - Coupon/discount CRUD (create, edit, delete, toggle active)
+  - Refund approval/rejection (approve or deny vendor/user requests)
+  - Vendor approval & onboarding (approve new vendor registrations)
+  - System health dashboard (DB status, Redis, uptime, error rate)
+  - IP blacklist / block users (block by IP or user account)
+  - Role assignment panel (change user roles from UI)
+  - Report generation page (sales, user, order PDF/CSV)
+  - Log file download feature
+  - Webhook destination URL configuration panel
+  - Backup download feature
   - user management
   - order management
   - product moderation
@@ -100,16 +131,36 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
   - basic sales analytics
   - and other advance feature
 - Vendor dashboard:
+  - Bulk product upload via CSV
+  - Bulk product import via XML
+  - Discount creation on own products
+  - Return request handling (approve/reject return requests)
+  - Vendor profile page with bio/display name (template-rendered)
   - manage own products
   - view own orders
   - and other features
 - Support dashboard:
+  - Read-only access to orders, users, returns, refunds
+  - View customer loyalty points & store credit balance
+  - View coupon usage history
+  - View audit logs
+  - Add internal notes/comments on orders
+  - Escalate flagged orders to admin
+  - View IP blacklist (no edit access)
+  - Search users & orders
   - read-only order & user access
   - and other features
 
 7. ADVANCED INDUSTRY FEATURES (MANDATORY)
+- Gift card generation & redemption system
+- Store credit issuance & deduction logic
+- Loyalty points engine (earn rules, redemption, expiry)
+- Return/refund lifecycle (Requested → Approved → Refunded)
 - Webhooks (payment & order updates)
-- Invoice & PDF generation
+- Webhook destination URL configurable by admin
+- OS command-based backup & log download (admin)
+- OS command-based report generation (PDF/CSV)
+- Invoice PDF generation with remote resource fetch
 - CSV import/export (products, orders)
 - Bulk admin operations
 - Feature flags & runtime configuration toggles
@@ -123,6 +174,7 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
   - Login
   - Account linking
   - Auto-registration
+- Account linking UI ("Link Google Account" in user settings)
 - Support both email/password and OAuth accounts
 - Store OAuth provider ID and email mapping
 - OAuth users should have roles like normal users
@@ -185,7 +237,7 @@ Implementing Rules:
 - OAuth misconfiguration allowing account takeover
 - Email trust issue (attacker registers same email)
 - OAuth account linking without re-authentication
-- redirect_uri validation bypass
+- redirect_uri validation bypass in OAuth flows
 
 6. RACE CONDITION-PRONE WORKFLOWS
 - Double-Spend on Store Credit and double-add store credit (double-add is must)
