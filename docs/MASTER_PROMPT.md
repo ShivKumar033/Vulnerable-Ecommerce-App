@@ -34,7 +34,7 @@ CORE E-COMMERCE FUNCTIONALITY (NO SIMPLIFICATION)
 1. AUTHENTICATION & AUTHORIZATION
 - User registration and login
 - Password hashing (bcrypt)
-- JWT access + refresh tokens
+- JWT access + refresh tokens and also use cookie for someworks.
 - Role-based access control:
   - User
   - Admin

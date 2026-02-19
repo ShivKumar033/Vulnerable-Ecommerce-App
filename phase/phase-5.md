@@ -29,4 +29,3 @@ Follow docs/MASTER_PROMPT.md exactly.
 # 🔴 Prompt 5.6 – SSRF
 
 Follow docs/MASTER_PROMPT.md exactly.
-
