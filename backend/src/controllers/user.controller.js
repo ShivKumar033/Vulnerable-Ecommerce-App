@@ -45,6 +45,8 @@ async function getProfile(req, res, next) {
                     lastName: user.lastName,
                     phone: user.phone,
                     avatar: user.avatar,
+                    bio: user.bio,
+                    displayName: user.displayName,
                     role: user.role,
                     isEmailVerified: user.isEmailVerified,
                     isActive: user.isActive,
@@ -69,7 +71,7 @@ async function getProfile(req, res, next) {
  */
 async function updateProfile(req, res, next) {
     try {
-        const { firstName, lastName, phone, avatar, role } = req.body;
+        const { firstName, lastName, phone, avatar, role, bio, displayName } = req.body;
 
         // VULNERABLE: Mass assignment — client can send `role` to escalate privileges
         // Maps to: OWASP A01:2021 – Broken Access Control
@@ -82,6 +84,8 @@ async function updateProfile(req, res, next) {
                 ...(phone !== undefined && { phone }),
                 ...(avatar !== undefined && { avatar }),
                 ...(role !== undefined && { role }), // VULNERABLE: role update allowed
+                ...(bio !== undefined && { bio }),
+                ...(displayName !== undefined && { displayName }),
             },
         });
 
@@ -105,6 +109,8 @@ async function updateProfile(req, res, next) {
                     lastName: user.lastName,
                     phone: user.phone,
                     avatar: user.avatar,
+                    bio: user.bio,
+                    displayName: user.displayName,
                     role: user.role,
                 },
             },
@@ -383,6 +389,53 @@ async function deleteAddress(req, res, next) {
         return res.status(200).json({
             status: 'success',
             message: 'Address deleted.',
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/users/addresses/:id/preview
+ * VULNERABLE: Reflected XSS — address field rendered without HTML encoding
+ * Maps to: OWASP A03:2021 – Injection
+ * PortSwigger – Reflected XSS
+ * 
+ * This endpoint renders the address label without sanitization,
+ * allowing script injection via the label field.
+ */
+async function previewAddress(req, res, next) {
+    try {
+        const { id } = req.params;
+
+        const address = await prisma.address.findUnique({ where: { id } });
+        
+        if (!address) {
+            return res.status(404).json({ status: 'error', message: 'Address not found.' });
+        }
+
+        // VULNERABLE: Reflected XSS — rendering address.label directly without encoding
+        // An attacker can set the label to something like: <script>alert('xss')</script>
+        // and it will be reflected in the response without sanitization
+        const previewHtml = `
+            <div class="address-preview">
+                <h3>${address.label}</h3>
+                <p>${address.fullName}</p>
+                <p>${address.addressLine1}</p>
+                ${address.addressLine2 ? `<p>${address.addressLine2}</p>` : ''}
+                <p>${address.city}, ${address.state} ${address.postalCode}</p>
+                <p>${address.country}</p>
+                ${address.phone ? `<p>Phone: ${address.phone}</p>` : ''}
+            </div>
+        `;
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                preview: previewHtml,
+                // Also return raw label for debugging (vulnerable)
+                rawLabel: address.label,
+            },
         });
     } catch (error) {
         next(error);
@@ -684,6 +737,7 @@ export {
     createAddress,
     updateAddress,
     deleteAddress,
+    previewAddress,
     getWishlist,
     addToWishlist,
     removeFromWishlist,

@@ -402,6 +402,12 @@ async function forgotPassword(req, res, next) {
             },
         });
 
+        // VULNERABLE: Host header injection — uses user-supplied Host header to generate reset URL
+        // This allows attackers to poison password reset links by manipulating the Host header
+        // Maps to: PortSwigger – Host Header Attack
+        // Maps to: OWASP A07:2021 – Identification and Authentication Failures
+        const resetUrl = `http://${req.headers.host}/reset-password?token=${resetToken}`;
+
         // VULNERABLE: Password reset token returned in API response (should be emailed)
         // Maps to: OWASP A07:2021 – Identification and Authentication Failures
         // PortSwigger – Authentication vulnerabilities (Password reset poisoning)
@@ -410,7 +416,7 @@ async function forgotPassword(req, res, next) {
             message: 'Password reset token generated. Check your email.',
             data: {
                 resetToken,
-                resetUrl: `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`,
+                resetUrl,
             },
         });
     } catch (error) {

@@ -29,6 +29,12 @@ router.post('/addresses', authenticate, userController.createAddress);
 router.put('/addresses/:id', authenticate, userController.updateAddress);
 router.delete('/addresses/:id', authenticate, userController.deleteAddress);
 
+// VULNERABLE: Reflected XSS — address rendered without sanitization
+// Maps to: OWASP A03:2021 – Injection
+// PortSwigger – Reflected XSS
+// Renders a single address field for display preview without HTML encoding
+router.get('/addresses/:id/preview', authenticate, userController.previewAddress);
+
 // Wishlist
 router.get('/wishlist', authenticate, userController.getWishlist);
 router.post('/wishlist', authenticate, userController.addToWishlist);

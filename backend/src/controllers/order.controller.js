@@ -8,14 +8,15 @@ import { createAuditLog } from '../utils/auditLog.js';
 /**
  * POST /api/v1/orders/checkout
  * Convert cart to order, deduct stock.
+ * Supports: couponCode, giftCardCode, useWalletCredits, useLoyaltyPoints
  */
 async function checkout(req, res, next) {
     try {
         const userId = req.user.id;
-        const { addressId, couponCode, notes } = req.body;
+        const { addressId, couponCode, giftCardCode, useWalletCredits, useLoyaltyPoints, notes } = req.body;
 
-        // Fetch cart with items
-        const cart = await prisma.cart.findUnique({
+        // Fetch cart with items (authenticated user cart)
+        let cart = await prisma.cart.findUnique({
             where: { userId },
             include: {
                 items: {
@@ -25,6 +26,23 @@ async function checkout(req, res, next) {
                 },
             },
         });
+
+        // If no cart, try to get guest cart
+        if (!cart || cart.items.length === 0) {
+            const guestCartId = req.cookies?.guestCartId;
+            if (guestCartId) {
+                cart = await prisma.guestCart.findUnique({
+                    where: { sessionId: guestCartId },
+                    include: {
+                        items: {
+                            include: {
+                                product: true,
+                            },
+                        },
+                    },
+                });
+            }
+        }
 
         if (!cart || cart.items.length === 0) {
             return res.status(400).json({
@@ -105,11 +123,128 @@ async function checkout(req, res, next) {
             }
         }
 
+        // VULNERABLE: Gift card redemption at checkout - Race condition vulnerability
+        // Gift card balance can be double-spent
+        let giftCardDiscount = 0;
+        if (giftCardCode) {
+            const giftCard = await prisma.giftCard.findUnique({
+                where: { code: giftCardCode.toUpperCase() },
+            });
+
+            if (giftCard && giftCard.status === 'ACTIVE') {
+                if (!giftCard.expiresAt || giftCard.expiresAt > new Date()) {
+                    if (giftCard.currentBalance >= subtotal) {
+                        giftCardDiscount = subtotal;
+                    } else {
+                        giftCardDiscount = parseFloat(giftCard.currentBalance);
+                    }
+
+                    // Update gift card balance (race condition vulnerable)
+                    await prisma.giftCard.update({
+                        where: { id: giftCard.id },
+                        data: { 
+                            currentBalance: { decrement: giftCardDiscount },
+                            redeemedById: userId,
+                        },
+                    });
+
+                    // Record transaction
+                    await prisma.giftCardTransaction.create({
+                        data: {
+                            giftCardId: giftCard.id,
+                            type: 'REDEEM',
+                            amount: giftCardDiscount,
+                            description: 'Applied to order',
+                        },
+                    });
+                }
+            }
+        }
+
+        // VULNERABLE: Wallet/Store credit application - Race condition vulnerability
+        // Wallet balance can be double-spent
+        let walletDiscount = 0;
+        if (useWalletCredits && parseFloat(useWalletCredits) > 0) {
+            const wallet = await prisma.wallet.findUnique({
+                where: { userId },
+            });
+
+            if (wallet) {
+                const walletBalance = parseFloat(wallet.balance);
+                const requestedCredit = parseFloat(useWalletCredits);
+                
+                // Calculate remaining after gift card
+                const remainingAfterGift = subtotal - giftCardDiscount;
+                
+                if (walletBalance >= requestedCredit && requestedCredit <= remainingAfterGift) {
+                    walletDiscount = requestedCredit;
+                    
+                    // Debit wallet (race condition vulnerable)
+                    await prisma.wallet.update({
+                        where: { id: wallet.id },
+                        data: { balance: { decrement: walletDiscount } },
+                    });
+
+                    // Record transaction
+                    await prisma.walletTransaction.create({
+                        data: {
+                            walletId: wallet.id,
+                            type: 'debit',
+                            amount: walletDiscount,
+                            description: 'Applied to order',
+                        },
+                    });
+                }
+            }
+        }
+
+        // VULNERABLE: Loyalty points redemption - Race condition vulnerability
+        // Loyalty points can be double-spent
+        let loyaltyDiscount = 0;
+        if (useLoyaltyPoints && parseInt(useLoyaltyPoints) > 0) {
+            const loyalty = await prisma.loyaltyPoint.findUnique({
+                where: { userId },
+            });
+
+            if (loyalty) {
+                const pointsBalance = loyalty.balance;
+                const requestedPoints = parseInt(useLoyaltyPoints);
+                
+                // Calculate remaining after gift card and wallet
+                const remainingAfterWallet = subtotal - giftCardDiscount - walletDiscount;
+                
+                // Convert points to dollar value: 100 points = $1
+                const pointsValue = requestedPoints / 100;
+                
+                if (pointsBalance >= requestedPoints && pointsValue <= remainingAfterWallet) {
+                    loyaltyDiscount = pointsValue;
+                    
+                    // Redeem points (race condition vulnerable)
+                    await prisma.loyaltyPoint.update({
+                        where: { id: loyalty.id },
+                        data: { balance: { decrement: requestedPoints } },
+                    });
+
+                    // Record transaction
+                    await prisma.loyaltyPointTransaction.create({
+                        data: {
+                            loyaltyPointId: loyalty.id,
+                            type: 'REDEEM',
+                            amount: -requestedPoints,
+                            description: 'Applied to order',
+                        },
+                    });
+                }
+            }
+        }
+
         // Simple tax & shipping calculation
         const taxRate = 0.08; // 8%
         const tax = subtotal * taxRate;
         const shippingCost = subtotal > 100 ? 0 : 9.99;
-        const totalAmount = subtotal + tax + shippingCost - discount;
+        
+        // Calculate final total
+        const totalAmount = subtotal + tax + shippingCost - discount - giftCardDiscount - walletDiscount - loyaltyDiscount;
 
         // Create the order
         const order = await prisma.order.create({
@@ -120,8 +255,8 @@ async function checkout(req, res, next) {
                 subtotal: Math.round(subtotal * 100) / 100,
                 tax: Math.round(tax * 100) / 100,
                 shippingCost: Math.round(shippingCost * 100) / 100,
-                discount: Math.round(discount * 100) / 100,
-                totalAmount: Math.round(totalAmount * 100) / 100,
+                discount: Math.round((discount + giftCardDiscount + walletDiscount + loyaltyDiscount) * 100) / 100,
+                totalAmount: Math.round(Math.max(0, totalAmount) * 100) / 100,
                 couponId,
                 notes: notes || null,
                 items: {
@@ -138,7 +273,40 @@ async function checkout(req, res, next) {
         });
 
         // Clear the cart after checkout
-        await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+        if (cart.userId) {
+            await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+        } else {
+            // Guest cart - also clear it
+            await prisma.guestCartItem.deleteMany({ where: { cartId: cart.id } });
+        }
+
+        // Earn loyalty points from purchase (1 point per dollar spent)
+        const earnedPoints = Math.floor(subtotal);
+        if (earnedPoints > 0) {
+            let loyalty = await prisma.loyaltyPoint.findUnique({ where: { userId } });
+            if (!loyalty) {
+                loyalty = await prisma.loyaltyPoint.create({ data: { userId } });
+            }
+            
+            // VULNERABLE: Race condition in earning points
+            await prisma.loyaltyPoint.update({
+                where: { id: loyalty.id },
+                data: { 
+                    balance: { increment: earnedPoints },
+                    lifetimeEarnings: { increment: earnedPoints },
+                },
+            });
+
+            await prisma.loyaltyPointTransaction.create({
+                data: {
+                    loyaltyPointId: loyalty.id,
+                    type: 'EARN',
+                    amount: earnedPoints,
+                    orderId: order.id,
+                    description: `Earned ${earnedPoints} points from order`,
+                },
+            });
+        }
 
         // Audit log
         await createAuditLog({
@@ -150,6 +318,9 @@ async function checkout(req, res, next) {
                 orderNumber: order.orderNumber,
                 totalAmount: order.totalAmount,
                 itemCount: orderItems.length,
+                giftCardApplied: giftCardDiscount,
+                walletApplied: walletDiscount,
+                loyaltyPointsApplied: useLoyaltyPoints,
             },
             req,
         });
@@ -171,14 +342,26 @@ async function checkout(req, res, next) {
 async function listOrders(req, res, next) {
     try {
         const userId = req.user.id;
-        const { page = 1, limit = 10, status } = req.query;
+        const { page = 1, limit = 10, status, search, orderNumber } = req.query;
 
         const pageNum = parseInt(page, 10) || 1;
         const pageSize = parseInt(limit, 10) || 10;
         const skip = (pageNum - 1) * pageSize;
 
         const where = { userId };
+        
+        // Filter by status
         if (status) where.status = status;
+        
+        // VULNERABLE: Blind SQL injection — search parameter is used in raw query
+        // when orderNumber is provided, allowing injection via query parameter.
+        // Maps to: OWASP A03:2021 – Injection
+        // PortSwigger – SQL Injection (Blind)
+        
+        // Add search filter for orderNumber (vulnerable to SQL injection)
+        if (orderNumber) {
+            where.orderNumber = orderNumber; // Direct assignment without sanitization
+        }
 
         const [orders, totalCount] = await Promise.all([
             prisma.order.findMany({

@@ -40,6 +40,19 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum GiftCardStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
 // ──────────────────────────────────────────────────────────────
 // USER & AUTHENTICATION
 // ──────────────────────────────────────────────────────────────
@@ -60,6 +73,10 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // Profile fields
+  bio             String?   @db.Text  // User bio for profile page
+  displayName     String?   // Display name for user profile
+
   // Relations
   addresses       Address[]
   products        Product[]         @relation("VendorProducts")
@@ -73,6 +90,11 @@ model User {
   auditLogs       AuditLog[]
   savedPayments   SavedPaymentMethod[]
   wallet          Wallet?
+  loyaltyPoints   LoyaltyPoint?
+  giftCards       GiftCard[]     @relation("PurchasedBy")
+  redeemedGiftCards GiftCard[]   @relation("RedeemedBy")
+  returnRequests  ReturnRequest[]
+  accountDeletionRequests AccountDeletionRequest[]
 
   @@map("users")
 }
@@ -184,6 +206,7 @@ model Product {
   reviews     Review[]
   orderItems  OrderItem[]
   cartItems   CartItem[]
+  guestCartItems GuestCartItem[]
   wishlistItems WishlistItem[]
 
   @@map("products")
@@ -271,6 +294,32 @@ model CartItem {
   @@map("cart_items")
 }
 
+// Guest Cart for unauthenticated users
+model GuestCart {
+  id        String         @id @default(uuid())
+  sessionId String         @unique
+  items     GuestCartItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("guest_carts")
+}
+
+model GuestCartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      GuestCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@map("guest_cart_items")
+}
+
 // ──────────────────────────────────────────────────────────────
 // WISHLIST
 // ──────────────────────────────────────────────────────────────
@@ -326,6 +375,7 @@ model Order {
 
   items         OrderItem[]
   payment       Payment?
+  returnRequests ReturnRequest[]
 
   @@map("orders")
 }
@@ -501,4 +551,119 @@ model WalletTransaction {
   createdAt   DateTime @default(now())
 
   @@map("wallet_transactions")
+}
+
+// ──────────────────────────────────────────────────────────────
+// LOYALTY POINTS SYSTEM
+// ──────────────────────────────────────────────────────────────
+
+// VULNERABLE: Race condition — concurrent balance updates are not serialised
+// Maps to: OWASP A04:2021 – Insecure Design
+// PortSwigger – Race Conditions
+model LoyaltyPoint {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance         Int      @default(0) // loyalty points balance
+  lifetimeEarnings Int     @default(0) // total points earned all time
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transactions    LoyaltyPointTransaction[]
+
+  @@map("loyalty_points")
+}
+
+model LoyaltyPointTransaction {
+  id          String   @id @default(uuid())
+  loyaltyPointId String
+  loyaltyPoint LoyaltyPoint @relation(fields: [loyaltyPointId], references: [id], onDelete: Cascade)
+  type        String   // "EARN" | "REDEEM" | "EXPIRE" | "ADJUST" | "REFUND"
+  amount      Int      // positive for earning, negative for redemption
+  orderId     String?
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@map("loyalty_point_transactions")
+}
+
+// ──────────────────────────────────────────────────────────────
+// GIFT CARD SYSTEM
+// ──────────────────────────────────────────────────────────────
+
+model GiftCard {
+  id              String         @id @default(uuid())
+  code            String         @unique // gift card code
+  initialBalance  Decimal        @db.Decimal(12, 2)
+  currentBalance  Decimal        @db.Decimal(12, 2)
+  currency        String         @default("USD")
+  status          GiftCardStatus @default(ACTIVE)
+  purchasedById   String?
+  purchasedBy     User?          @relation("PurchasedBy", fields: [purchasedById], references: [id])
+  redeemedById    String?
+  redeemedBy      User?          @relation("RedeemedBy", fields: [redeemedById], references: [id])
+  expiresAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  transactions    GiftCardTransaction[]
+
+  @@map("gift_cards")
+}
+
+model GiftCardTransaction {
+  id            String   @id @default(uuid())
+  giftCardId    String
+  giftCard      GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  type          String   // "PURCHASE" | "REDEEM" | "REFUND" | "ADJUST"
+  amount        Decimal  @db.Decimal(12, 2)
+  description   String?
+  orderId       String?
+  createdAt     DateTime @default(now())
+
+  @@map("gift_card_transactions")
+}
+
+// ──────────────────────────────────────────────────────────────
+// RETURN / REFUND REQUEST SYSTEM
+// ──────────────────────────────────────────────────────────────
+
+model ReturnRequest {
+  id            String      @id @default(uuid())
+  orderId       String
+  order         Order       @relation(fields: [orderId], references: [id])
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  // VULNERABLE: Return status can be tampered with via API
+  // Maps to: OWASP A01:2021 – Broken Access Control
+  status        ReturnStatus @default(PENDING)
+  reason        String      @db.Text
+  items         Json        // items being returned
+  refundAmount  Decimal     @db.Decimal(12, 2)
+  approvedById  String?
+  resolvedAt    DateTime?
+  adminNotes    String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("return_requests")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ACCOUNT DELETION REQUEST
+// ──────────────────────────────────────────────────────────────
+
+model AccountDeletionRequest {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason      String?  @db.Text
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  processedById String?
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("account_deletion_requests")
 }

@@ -183,7 +183,9 @@
 |-----|--------|-------|
 | ~~Wallet / store credits system~~ | ✅ DONE | Schema + controller + routes with race conditions |
 | ~~Real PDF generation~~ | ✅ DONE | PDFKit-based invoice generation |
-| Multi-step checkout UI flow | N/A | Frontend concern — not backend |
-| Stripe Elements / Checkout integration | N/A | Mock payment is sufficient for security testing |
+| ~~Multi-step checkout UI flow~~ | N/A | Frontend concern — not backend |
+| ~~Stripe Elements / Checkout integration~~ | N/A | Mock payment is sufficient for security testing |
+| ~~Order history search/filter~~ | ✅ DONE | Added `orderNumber` query parameter with SQL injection vuln |
+| ~~Reflected XSS in address~~ | ✅ DONE | Added `/api/v1/users/addresses/:id/preview` endpoint |
 
 **All backend gaps are now closed. 🎉**

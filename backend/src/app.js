@@ -105,6 +105,12 @@ app.use('/api/v1/export', (await import('./routes/export.routes.js')).default);
 app.use('/api/v1/import', (await import('./routes/import.routes.js')).default);
 app.use('/api/v1/wallet', (await import('./routes/wallet.routes.js')).default);
 
+// Phase 6: User Account Management - New features
+app.use('/api/v1/loyalty', (await import('./routes/loyalty.routes.js')).default);
+app.use('/api/v1/giftcards', (await import('./routes/giftcard.routes.js')).default);
+app.use('/api/v1/returns', (await import('./routes/return.routes.js')).default);
+app.use('/api/v1', (await import('./routes/accountDeletion.routes.js')).default);
+
 // VULNERABLE: Legacy API v2 — no authentication on most endpoints
 // Maps to: OWASP A01:2021 – Broken Access Control
 // Maps to: OWASP A05:2021 – Security Misconfiguration
