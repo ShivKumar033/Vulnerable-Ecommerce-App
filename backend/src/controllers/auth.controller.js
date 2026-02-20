@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils/jwt.js';
 import { createAuditLog } from '../utils/auditLog.js';
+import { sendPasswordResetEmail } from '../utils/email.js';
 import crypto from 'crypto';
 
 // ──────────────────────────────────────────────────────────────
@@ -411,6 +412,14 @@ async function forgotPassword(req, res, next) {
         // VULNERABLE: Password reset token returned in API response (should be emailed)
         // Maps to: OWASP A07:2021 – Identification and Authentication Failures
         // PortSwigger – Authentication vulnerabilities (Password reset poisoning)
+
+        // Send password reset email (mock)
+        await sendPasswordResetEmail({
+            to: user.email,
+            resetToken,
+            req,
+        }).catch((err) => console.error('Failed to send password reset email:', err.message));
+
         return res.status(200).json({
             status: 'success',
             message: 'Password reset token generated. Check your email.',

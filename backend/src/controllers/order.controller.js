@@ -1,5 +1,6 @@
 import { prisma } from '../config/db.js';
 import { createAuditLog } from '../utils/auditLog.js';
+import { sendOrderConfirmation } from '../utils/email.js';
 
 // ──────────────────────────────────────────────────────────────
 // Order Controller
@@ -324,6 +325,22 @@ async function checkout(req, res, next) {
             },
             req,
         });
+
+        // Send order confirmation email (mock)
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const orderItemsForEmail = order.items.map((item) => ({
+            product: item.product?.title || 'N/A',
+            quantity: item.quantity,
+            price: parseFloat(item.price),
+        }));
+
+        await sendOrderConfirmation({
+            to: user.email,
+            orderNumber: order.orderNumber,
+            totalAmount: parseFloat(order.totalAmount),
+            items: orderItemsForEmail,
+            req,
+        }).catch((err) => console.error('Failed to send order confirmation email:', err.message));
 
         return res.status(201).json({
             status: 'success',
