@@ -566,6 +566,9 @@ model LoyaltyPoint {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   balance         Int      @default(0) // loyalty points balance
   lifetimeEarnings Int     @default(0) // total points earned all time
+  // Loyalty points expiry configuration
+  expiresAt       DateTime? // date when points expire (absolute expiry)
+  lastEarnedAt    DateTime? // last time points were earned (for inactivity expiry)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -666,4 +669,56 @@ model AccountDeletionRequest {
   updatedAt   DateTime @updatedAt
 
   @@map("account_deletion_requests")
+}
+
+// ──────────────────────────────────────────────────────────────
+// IP BLACKLIST
+// ──────────────────────────────────────────────────────────────
+
+model IpBlacklist {
+  id          String   @id @default(uuid())
+  ipAddress   String   @unique
+  reason      String?  @db.Text
+  blockedById String?
+  createdAt   DateTime @default(now())
+
+  @@map("ip_blacklist")
+}
+
+// ──────────────────────────────────────────────────────────────
+// VENDOR DISCOUNTS
+// ──────────────────────────────────────────────────────────────
+
+model VendorDiscount {
+  id          String   @id @default(uuid())
+  vendorId    String
+  name        String
+  description String?
+  discountType String  @default("percentage") // "percentage" or "fixed"
+  discountValue Decimal @db.Decimal(10, 2)
+  minOrderAmount Decimal? @db.Decimal(10, 2)
+  maxUses     Int?     // null = unlimited
+  currentUses Int      @default(0)
+  isActive    Boolean  @default(true)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("vendor_discounts")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ORDER INTERNAL NOTES (Support)
+// ──────────────────────────────────────────────────────────────
+
+model OrderNote {
+  id          String   @id @default(uuid())
+  orderId     String
+  userId      String   // support/admin who added the note
+  content     String   @db.Text
+  isInternal  Boolean  @default(true) // internal notes not visible to customer
+  createdAt   DateTime @default(now())
+
+  @@map("order_notes")
 }

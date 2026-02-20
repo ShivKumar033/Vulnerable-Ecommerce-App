@@ -829,12 +829,871 @@ async function cancelOrder(req, res, next) {
     }
 }
 
+// ═══════════════════════════
+// SYSTEM HEALTH
+// ═══════════════════════════
+
+/**
+ * GET /api/v1/admin/system-health
+ * System health dashboard with DB status, memory, CPU, uptime
+ */
+async function getSystemHealth(req, res, next) {
+    try {
+        // Check database connection
+        let dbStatus = 'connected';
+        let dbLatency = 0;
+        try {
+            const start = Date.now();
+            await prisma.$queryRaw`SELECT 1`;
+            dbLatency = Date.now() - start;
+        } catch (e) {
+            dbStatus = 'disconnected';
+        }
+
+        // Get memory usage
+        const memoryUsage = process.memoryUsage();
+        
+        // Get CPU usage (simple approximation)
+        const cpuUsage = process.cpuUsage();
+
+        // Uptime
+        const uptime = process.uptime();
+
+        // Count recent errors from audit logs (last hour)
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const errorCount = await prisma.auditLog.count({
+            where: {
+                action: { contains: 'ERROR' },
+                createdAt: { gte: oneHourAgo },
+            },
+        });
+
+        // Count total orders and users for activity metrics
+        const [totalOrders, totalUsers, totalProducts] = await Promise.all([
+            prisma.order.count(),
+            prisma.user.count(),
+            prisma.product.count(),
+        ]);
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                system: {
+                    status: 'healthy',
+                    uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+                    nodeVersion: process.version,
+                    platform: process.platform,
+                },
+                database: {
+                    status: dbStatus,
+                    latency: `${dbLatency}ms`,
+                },
+                resources: {
+                    memory: {
+                        rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
+                        heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB`,
+                        heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`,
+                    },
+                    cpu: cpuUsage,
+                },
+                metrics: {
+                    errorsLastHour: errorCount,
+                    totalOrders,
+                    totalUsers,
+                    totalProducts,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ═══════════════════════════
+// IP BLACKLIST MANAGEMENT
+// ═══════════════════════════
+
+/**
+ * GET /api/v1/admin/ip-blacklist
+ * List all blocked IPs
+ */
+async function listIpBlacklist(req, res, next) {
+    try {
+        const blockedIps = await prisma.ipBlacklist.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: { select: { id: true, email: true } },
+            },
+        });
+        return res.status(200).json({ status: 'success', data: { blockedIps } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * POST /api/v1/admin/ip-blacklist
+ * Block an IP address
+ */
+async function blockIp(req, res, next) {
+    try {
+        const { ipAddress, reason } = req.body;
+
+        if (!ipAddress) {
+            return res.status(400).json({ status: 'error', message: 'IP address is required.' });
+        }
+
+        // Check if already blocked
+        const existing = await prisma.ipBlacklist.findUnique({
+            where: { ipAddress },
+        });
+
+        if (existing) {
+            return res.status(409).json({ status: 'error', message: 'IP address is already blocked.' });
+        }
+
+        const blockedIp = await prisma.ipBlacklist.create({
+            data: {
+                ipAddress,
+                reason: reason || null,
+                blockedById: req.user.id,
+            },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'IP_BLOCKED',
+            entity: 'IpBlacklist',
+            entityId: blockedIp.id,
+            metadata: { ipAddress, reason },
+            req,
+        });
+
+        return res.status(201).json({ status: 'success', message: 'IP address blocked.', data: { blockedIp } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * DELETE /api/v1/admin/ip-blacklist/:id
+ * Unblock an IP address
+ */
+async function unblockIp(req, res, next) {
+    try {
+        const { id } = req.params;
+
+        const blockedIp = await prisma.ipBlacklist.findUnique({
+            where: { id },
+        });
+
+        if (!blockedIp) {
+            return res.status(404).json({ status: 'error', message: 'Blocked IP not found.' });
+        }
+
+        await prisma.ipBlacklist.delete({
+            where: { id },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'IP_UNBLOCKED',
+            entity: 'IpBlacklist',
+            entityId: id,
+            metadata: { ipAddress: blockedIp.ipAddress },
+            req,
+        });
+
+        return res.status(200).json({ status: 'success', message: 'IP address unblocked.' });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * POST /api/v1/admin/users/:id/block
+ * Block a user account
+ */
+async function blockUser(req, res, next) {
+    try {
+        const { id } = req.params;
+
+        const user = await prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found.' });
+        }
+
+        await prisma.user.update({
+            where: { id },
+            data: { isActive: false },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'USER_BLOCKED',
+            entity: 'User',
+            entityId: id,
+            req,
+        });
+
+        return res.status(200).json({ status: 'success', message: 'User account blocked.' });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * POST /api/v1/admin/users/:id/unblock
+ * Unblock a user account
+ */
+async function unblockUser(req, res, next) {
+    try {
+        const { id } = req.params;
+
+        const user = await prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found.' });
+        }
+
+        await prisma.user.update({
+            where: { id },
+            data: { isActive: true },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'USER_UNBLOCKED',
+            entity: 'User',
+            entityId: id,
+            req,
+        });
+
+        return res.status(200).json({ status: 'success', message: 'User account unblocked.' });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ═══════════════════════════
+// VENDOR APPROVAL & ONBOARDING
+// ═══════════════════════════
+
+/**
+ * GET /api/v1/admin/vendors/pending
+ * List pending vendor registrations
+ */
+async function listPendingVendors(req, res, next) {
+    try {
+        const vendors = await prisma.user.findMany({
+            where: {
+                role: 'VENDOR',
+                isActive: false, // Pending vendors are inactive until approved
+            },
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                createdAt: true,
+            },
+        });
+
+        return res.status(200).json({ status: 'success', data: { vendors } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/admin/vendors
+ * List all vendors
+ */
+async function listVendors(req, res, next) {
+    try {
+        const { page = 1, limit = 20, approved } = req.query;
+        const pageNum = parseInt(page, 10) || 1;
+        const pageSize = parseInt(limit, 10) || 20;
+        const skip = (pageNum - 1) * pageSize;
+
+        const where = { role: 'VENDOR' };
+        if (approved !== undefined) {
+            where.isActive = approved === 'true';
+        }
+
+        const [vendors, totalCount] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                    isActive: true,
+                    createdAt: true,
+                    _count: { select: { products: true, orders: true } },
+                },
+            }),
+            prisma.user.count({ where }),
+        ]);
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                vendors,
+                pagination: { page: pageNum, limit: pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * PUT /api/v1/admin/vendors/:id/approve
+ * Approve a vendor registration
+ */
+async function approveVendor(req, res, next) {
+    try {
+        const { id } = req.params;
+
+        const vendor = await prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!vendor) {
+            return res.status(404).json({ status: 'error', message: 'Vendor not found.' });
+        }
+
+        if (vendor.role !== 'VENDOR') {
+            return res.status(400).json({ status: 'error', message: 'User is not a vendor.' });
+        }
+
+        await prisma.user.update({
+            where: { id },
+            data: { isActive: true },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'VENDOR_APPROVED',
+            entity: 'User',
+            entityId: id,
+            req,
+        });
+
+        return res.status(200).json({ status: 'success', message: 'Vendor approved successfully.' });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * PUT /api/v1/admin/vendors/:id/reject
+ * Reject a vendor registration
+ */
+async function rejectVendor(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        const vendor = await prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!vendor) {
+            return res.status(404).json({ status: 'error', message: 'Vendor not found.' });
+        }
+
+        // Delete the vendor account (reject registration)
+        await prisma.user.delete({
+            where: { id },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'VENDOR_REJECTED',
+            entity: 'User',
+            entityId: id,
+            metadata: { reason: reason || 'No reason provided' },
+            req,
+        });
+
+        return res.status(200).json({ status: 'success', message: 'Vendor registration rejected.' });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ═══════════════════════════
+// REPORT GENERATION (OS Command Based - Vulnerable)
+// ═══════════════════════════
+
+/**
+ * GET /api/v1/admin/reports/sales
+ * Generate sales report (OS command based - intentionally vulnerable)
+ */
+async function generateSalesReport(req, res, next) {
+    try {
+        const { format = 'csv', startDate, endDate } = req.query;
+
+        // VULNERABLE: OS command injection in report generation
+        // Maps to: OWASP A01:2021 – Broken Access Control
+        // PortSwigger – OS Command Injection
+        const dateRange = startDate && endDate ? `${startDate} to ${endDate}` : 'all-time';
+        const filename = `sales_report_${Date.now()}.${format}`;
+        
+        // Intentionally vulnerable - no input sanitization
+        const reportPath = `/tmp/${filename}`;
+        
+        // Build query based on parameters
+        let query = 'SELECT * FROM "Order"';
+        if (startDate && endDate) {
+            query += ` WHERE "createdAt" BETWEEN '${startDate}' AND '${endDate}'`;
+        }
+
+        // Export to CSV using psql
+        const os = await import('os');
+        const fs = await import('fs');
+        
+        // VULNERABLE: Command construction with user input
+        const cmd = `psql "${process.env.DATABASE_URL}" -c "${query}" -A -F"," > ${reportPath} 2>&1`;
+        
+        const { execSync } = await import('child_process');
+        
+        try {
+            execSync(cmd, { encoding: 'utf-8' });
+        } catch (e) {
+            // Ignore errors for demo
+        }
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'SALES_REPORT_GENERATED',
+            entity: 'Report',
+            metadata: { format, startDate, endDate, filename },
+            req,
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Sales report generated.',
+            data: { filename, path: reportPath, format },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/admin/reports/users
+ * Generate user report (OS command based - intentionally vulnerable)
+ */
+async function generateUserReport(req, res, next) {
+    try {
+        const { format = 'csv' } = req.query;
+
+        const filename = `user_report_${Date.now()}.${format}`;
+        const reportPath = `/tmp/${filename}`;
+
+        const os = await import('os');
+        
+        // VULNERABLE: OS command injection
+        const cmd = `psql "${process.env.DATABASE_URL}" -c "SELECT * FROM \"User\";" -A -F"," > ${reportPath} 2>&1`;
+        
+        const { execSync } = await import('child_process');
+        
+        try {
+            execSync(cmd, { encoding: 'utf-8' });
+        } catch (e) {
+            // Ignore errors
+        }
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'USER_REPORT_GENERATED',
+            entity: 'Report',
+            metadata: { format, filename },
+            req,
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'User report generated.',
+            data: { filename, path: reportPath, format },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/admin/reports/orders
+ * Generate order report (OS command based - intentionally vulnerable)
+ */
+async function generateOrderReport(req, res, next) {
+    try {
+        const { format = 'csv', status } = req.query;
+
+        const filename = `order_report_${Date.now()}.${format}`;
+        const reportPath = `/tmp/${filename}`;
+
+        let query = 'SELECT * FROM "Order"';
+        if (status) {
+            query += ` WHERE status = '${status}'`;
+        }
+
+        // VULNERABLE: OS command injection
+        const cmd = `psql "${process.env.DATABASE_URL}" -c "${query}" -A -F"," > ${reportPath} 2>&1`;
+        
+        const { execSync } = await import('child_process');
+        
+        try {
+            execSync(cmd, { encoding: 'utf-8' });
+        } catch (e) {
+            // Ignore errors
+        }
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'ORDER_REPORT_GENERATED',
+            entity: 'Report',
+            metadata: { format, status, filename },
+            req,
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Order report generated.',
+            data: { filename, path: reportPath, format },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ═══════════════════════════
+// LOG FILE DOWNLOAD (OS Command Based - Vulnerable)
+// ═══════════════════════════
+
+/**
+ * GET /api/v1/admin/logs
+ * List available log files
+ */
+async function listLogFiles(req, res, next) {
+    try {
+        const logDir = process.env.LOG_DIR || './logs';
+        const fs = await import('fs');
+        const path = await import('path');
+
+        let files = [];
+        try {
+            if (fs.existsSync(logDir)) {
+                files = fs.readdirSync(logDir)
+                    .filter(f => f.endsWith('.log'))
+                    .map(f => {
+                        const stats = fs.statSync(path.join(logDir, f));
+                        return {
+                            name: f,
+                            size: `${Math.round(stats.size / 1024)}KB`,
+                            modified: stats.mtime,
+                        };
+                    });
+            }
+        } catch (e) {
+            // Return empty if logs directory doesn't exist
+        }
+
+        // Also check default npm log location
+        const defaultLogs = ['error.log', 'combined.log', 'access.log'];
+        const defaultLogDir = process.env.LOG_DIR || '/var/log';
+        
+        try {
+            defaultLogs.forEach(f => {
+                const logPath = path.join(defaultLogDir, f);
+                if (fs.existsSync(logPath)) {
+                    const stats = fs.statSync(logPath);
+                    files.push({
+                        name: f,
+                        size: `${Math.round(stats.size / 1024)}KB`,
+                        modified: stats.mtime,
+                    });
+                }
+            });
+        } catch (e) {
+            // Ignore
+        }
+
+        return res.status(200).json({ status: 'success', data: { logs: files } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/admin/logs/:filename/download
+ * Download log file (VULNERABLE: OS command injection)
+ */
+async function downloadLogFile(req, res, next) {
+    try {
+        const { filename } = req.params;
+        
+        // VULNERABLE: Path traversal and OS command injection
+        // Maps to: OWASP A01:2021 – Broken Access Control
+        // PortSwigger – Path Traversal
+        
+        // Intentionally vulnerable - allows downloading any file
+        const logDir = process.env.LOG_DIR || './logs';
+        const filePath = logDir + '/' + filename;
+
+        const fs = await import('fs');
+        const path = await import('path');
+
+        // Check various possible locations
+        const possiblePaths = [
+            filePath,
+            path.join(logDir, filename),
+            path.join('/var/log', filename),
+            path.join(process.cwd(), 'logs', filename),
+            `/tmp/${filename}`,
+            filename, // Direct filename - very dangerous!
+        ];
+
+        let actualPath = null;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                actualPath = p;
+                break;
+            }
+        }
+
+        if (!actualPath) {
+            // Try to use cat command to read file
+            const { execSync } = await import('child_process');
+            try {
+                const content = execSync(`cat ${filename} 2>/dev/null || cat ${logDir}/${filename} 2>/dev/null || echo "File not found"`, { encoding: 'utf-8' });
+                
+                await createAuditLog({
+                    userId: req.user.id,
+                    action: 'LOG_FILE_DOWNLOADED',
+                    entity: 'Log',
+                    metadata: { filename, method: 'cat' },
+                    req,
+                });
+
+                return res.status(200).json({
+                    status: 'success',
+                    data: { filename, content },
+                });
+            } catch (e) {
+                return res.status(404).json({ status: 'error', message: 'Log file not found.' });
+            }
+        }
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'LOG_FILE_DOWNLOADED',
+            entity: 'Log',
+            metadata: { filename, path: actualPath },
+            req,
+        });
+
+        return res.download(actualPath, filename);
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ═══════════════════════════
+// BACKUP MANAGEMENT (OS Command Based - Vulnerable)
+// ═══════════════════════════
+
+/**
+ * POST /api/v1/admin/backup/create
+ * Create database backup (VULNERABLE: OS command injection)
+ */
+async function createBackup(req, res, next) {
+    try {
+        const { filename, compress = true } = req.body;
+
+        // VULNERABLE: OS command injection in backup creation
+        // Maps to: OWASP A01:2021 – Broken Access Control
+        // PortSwigger – OS Command Injection
+        
+        const backupName = filename || `backup_${Date.now()}.sql`;
+        const backupPath = `/tmp/${backupName}`;
+        
+        // VULNERABLE: Direct use of environment variable in command
+        const compressFlag = compress ? '| gzip' : '';
+        const cmd = `pg_dump "${process.env.DATABASE_URL}" -f ${backupPath} ${compressFlag} 2>&1`;
+        
+        const { execSync } = await import('child_process');
+        
+        let result = { success: false, message: '' };
+        try {
+            execSync(cmd, { encoding: 'utf-8', timeout: 30000 });
+            result = { success: true, message: 'Backup created successfully', path: backupPath };
+        } catch (e) {
+            result = { success: false, message: e.message };
+        }
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'BACKUP_CREATED',
+            entity: 'Backup',
+            metadata: { filename: backupName, compress, result },
+            req,
+        });
+
+        return res.status(200).json({
+            status: result.success ? 'success' : 'error',
+            message: result.message,
+            data: { filename: backupName, path: backupPath },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/admin/backup/list
+ * List available backups
+ */
+async function listBackups(req, res, next) {
+    try {
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        const backupDir = process.env.BACKUP_DIR || '/tmp';
+        let backups = [];
+
+        try {
+            if (fs.existsSync(backupDir)) {
+                backups = fs.readdirSync(backupDir)
+                    .filter(f => f.startsWith('backup_') && (f.endsWith('.sql') || f.endsWith('.sql.gz')))
+                    .map(f => {
+                        const stats = fs.statSync(path.join(backupDir, f));
+                        return {
+                            name: f,
+                            size: `${Math.round(stats.size / 1024 / 1024)}MB`,
+                            modified: stats.mtime,
+                        };
+                    });
+            }
+        } catch (e) {
+            // Return empty if directory doesn't exist
+        }
+
+        return res.status(200).json({ status: 'success', data: { backups } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/admin/backup/:filename/download
+ * Download backup file (VULNERABLE: Path traversal)
+ */
+async function downloadBackup(req, res, next) {
+    try {
+        const { filename } = req.params;
+
+        // VULNERABLE: Path traversal
+        // Maps to: OWASP A01:2021 – Broken Access Control
+        // PortSwigger – Path Traversal
+        
+        const backupDir = process.env.BACKUP_DIR || '/tmp';
+        
+        const fs = await import('fs');
+        const pathModule = await import('path');
+        
+        // Allow downloading from various paths
+        const possiblePaths = [
+            pathModule.join(backupDir, filename),
+            `/tmp/${filename}`,
+            filename,
+        ];
+
+        let actualPath = null;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                actualPath = p;
+                break;
+            }
+        }
+
+        if (!actualPath) {
+            return res.status(404).json({ status: 'error', message: 'Backup file not found.' });
+        }
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'BACKUP_DOWNLOADED',
+            entity: 'Backup',
+            metadata: { filename },
+            req,
+        });
+
+        return res.download(actualPath, filename);
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * DELETE /api/v1/admin/backup/:filename
+ * Delete backup file
+ */
+async function deleteBackup(req, res, next) {
+    try {
+        const { filename } = req.params;
+
+        const backupDir = process.env.BACKUP_DIR || '/tmp';
+        
+        const fs = await import('fs');
+        const pathModule = await import('path');
+        
+        const filePath = pathModule.join(backupDir, filename);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ status: 'error', message: 'Backup file not found.' });
+        }
+
+        fs.unlinkSync(filePath);
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'BACKUP_DELETED',
+            entity: 'Backup',
+            metadata: { filename },
+            req,
+        });
+
+        return res.status(200).json({ status: 'success', message: 'Backup deleted.' });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export {
     // Users
     listUsers,
     getUser,
     updateUser,
     deleteUser,
+    blockUser,
+    unblockUser,
     // Product moderation
     listAllProducts,
     moderateProduct,
@@ -861,4 +1720,27 @@ export {
     bulkUpdateOrders,
     // Orders
     cancelOrder,
+    // System Health
+    getSystemHealth,
+    // IP Blacklist
+    listIpBlacklist,
+    blockIp,
+    unblockIp,
+    // Vendor Management
+    listPendingVendors,
+    listVendors,
+    approveVendor,
+    rejectVendor,
+    // Reports
+    generateSalesReport,
+    generateUserReport,
+    generateOrderReport,
+    // Logs
+    listLogFiles,
+    downloadLogFile,
+    // Backups
+    createBackup,
+    listBackups,
+    downloadBackup,
+    deleteBackup,
 };

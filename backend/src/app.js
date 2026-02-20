@@ -100,6 +100,7 @@ app.use('/api/v1/reviews', (await import('./routes/review.routes.js')).default);
 // Phase 5: Admin, support, webhooks, export/import, wallet
 app.use('/api/v1/admin', (await import('./routes/admin.routes.js')).default);
 app.use('/api/v1/support', (await import('./routes/support.routes.js')).default);
+app.use('/api/v1/vendor', (await import('./routes/vendor.routes.js')).default);
 app.use('/api/v1/webhooks', (await import('./routes/webhook.routes.js')).default);
 app.use('/api/v1/export', (await import('./routes/export.routes.js')).default);
 app.use('/api/v1/import', (await import('./routes/import.routes.js')).default);
