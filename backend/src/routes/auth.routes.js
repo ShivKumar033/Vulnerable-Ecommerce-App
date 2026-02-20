@@ -35,6 +35,10 @@ router.post('/oauth/link', authenticate, oauthController.linkOAuthAccount);
 // VULNERABLE: IDOR — no ownership check on unlink
 router.delete('/oauth/unlink/:id', authenticate, oauthController.unlinkOAuthAccount);
 
+// Google OAuth linking flow (for linking account to existing user)
+router.get('/google/link', authenticate, oauthController.googleLinkLogin);
+router.get('/google/link/callback', oauthController.googleLinkCallback);
+
 // VULNERABLE: No CSRF protection on any of these endpoints.
 // Cross-origin requests can trigger login/register/password reset.
 // Maps to: OWASP A05:2021 – Security Misconfiguration

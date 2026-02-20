@@ -283,9 +283,197 @@ async function unlinkOAuthAccount(req, res, next) {
     }
 }
 
+/**
+ * GET /api/v1/auth/google/link
+ * Initiate Google OAuth flow for linking account to existing user.
+ * Requires authentication - user must be logged in to link OAuth.
+ */
+async function googleLinkLogin(req, res, next) {
+    try {
+        // VULNERABLE: Missing state parameter — no CSRF protection in OAuth flow
+        // This is intentionally vulnerable for security testing
+        const state = Buffer.from(JSON.stringify({ userId: req.user.id })).toString('base64');
+        
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${GOOGLE_CLIENT_ID}` +
+            `&redirect_uri=${encodeURIComponent(GOOGLE_CALLBACK_URL.replace('/callback', '/link/callback'))}` +
+            `&response_type=code` +
+            `&scope=openid%20email%20profile` +
+            `&access_type=offline` +
+            `&state=${state}`;
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Redirect to Google to link your account.',
+            data: { authUrl },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * GET /api/v1/auth/google/link/callback
+ * Handle Google OAuth callback for account linking.
+ * Links the OAuth account to the currently authenticated user.
+ */
+async function googleLinkCallback(req, res, next) {
+    try {
+        const { code, state } = req.query;
+
+        if (!code || !state) {
+            return res.status(400).json({ 
+                status: 'error', 
+                message: 'Authorization code and state are required.' 
+            });
+        }
+
+        // VULNERABLE: state parameter is not validated properly (CSRF in OAuth)
+        // Maps to: PortSwigger – OAuth authentication vulnerabilities
+        
+        // Decode state to get userId
+        let userId;
+        try {
+            const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
+            userId = decoded.userId;
+        } catch (e) {
+            // VULNERABLE: If state is invalid, still accept the request
+            userId = req.query.userId || null;
+        }
+
+        // Exchange code for tokens
+        let tokenData;
+        try {
+            const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    code,
+                    client_id: GOOGLE_CLIENT_ID,
+                    client_secret: GOOGLE_CLIENT_SECRET,
+                    redirect_uri: GOOGLE_CALLBACK_URL.replace('/callback', '/link/callback'),
+                    grant_type: 'authorization_code',
+                }),
+            });
+            tokenData = await tokenResponse.json();
+        } catch (fetchErr) {
+            tokenData = { id_token: null };
+        }
+
+        let googleUser;
+        if (tokenData.id_token) {
+            // Decode JWT without verification (intentionally vulnerable)
+            const parts = tokenData.id_token.split('.');
+            if (parts.length >= 2) {
+                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+                googleUser = {
+                    providerId: payload.sub,
+                    email: payload.email,
+                    firstName: payload.given_name || '',
+                    lastName: payload.family_name || '',
+                };
+            }
+        }
+
+        // Fallback for demo: use query params if Google isn't configured
+        if (!googleUser) {
+            // VULNERABLE: Insecure OAuth callback — allows setting user info via query params
+            googleUser = {
+                providerId: req.query.providerId || 'mock_google_' + Date.now(),
+                email: req.query.email || `mock_${Date.now()}@gmail.com`,
+                firstName: req.query.firstName || 'Google',
+                lastName: req.query.lastName || 'User',
+            };
+        }
+
+        // If no userId from state, try to find existing user by email
+        if (!userId && googleUser.email) {
+            const existingUser = await prisma.user.findUnique({
+                where: { email: googleUser.email },
+            });
+            if (existingUser) {
+                userId = existingUser.id;
+            }
+        }
+
+        if (!userId) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Unable to link account. Please log in first.',
+            });
+        }
+
+        // Check if this OAuth account is already linked to another user
+        const existingOAuth = await prisma.oAuthAccount.findFirst({
+            where: {
+                provider: 'google',
+                providerId: googleUser.providerId,
+            },
+        });
+
+        if (existingOAuth) {
+            if (existingOAuth.userId === userId) {
+                return res.status(200).json({
+                    status: 'success',
+                    message: 'This Google account is already linked to your account.',
+                });
+            }
+            // VULNERABLE: OAuth account can be re-linked to different user (account takeover)
+            // Maps to: PortSwigger – OAuth authentication vulnerabilities
+            // Allow reassigning to new user (vulnerable behavior for testing)
+            await prisma.oAuthAccount.update({
+                where: { id: existingOAuth.id },
+                data: { userId, email: googleUser.email },
+            });
+            
+            await createAuditLog({
+                userId,
+                action: 'OAUTH_ACCOUNT_RELINKED',
+                entity: 'User',
+                entityId: userId,
+                metadata: { provider: 'google', providerId: googleUser.providerId, email: googleUser.email },
+                req,
+            });
+
+            return res.status(200).json({
+                status: 'success',
+                message: 'Google account linked successfully.',
+            });
+        }
+
+        // Create new OAuth account linked to the authenticated user
+        const oauthAccount = await prisma.oAuthAccount.create({
+            data: {
+                provider: 'google',
+                providerId: googleUser.providerId,
+                email: googleUser.email,
+                userId,
+            },
+        });
+
+        await createAuditLog({
+            userId,
+            action: 'OAUTH_ACCOUNT_LINKED',
+            entity: 'User',
+            entityId: userId,
+            metadata: { provider: 'google', providerId: googleUser.providerId, email: googleUser.email },
+            req,
+        });
+
+        // Redirect back to frontend with success
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        return res.redirect(`${frontendUrl}/settings?oauth=linked&provider=google`);
+
+    } catch (error) {
+        next(error);
+    }
+}
+
 export {
     googleLogin,
     googleCallback,
     linkOAuthAccount,
     unlinkOAuthAccount,
+    googleLinkLogin,
+    googleLinkCallback,
 };
