@@ -120,6 +120,63 @@ async function paymentWebhook(req, res, next) {
                 }
                 break;
             }
+            // VULNERABLE: Fake Return Confirmation - attacker can send fake return.approved
+            // webhook to mark returns as approved without proper authorization
+            // Maps to: OWASP A04:2021 – Insecure Design
+            case 'return.approved': {
+                if (data.returnId) {
+                    await prisma.returnRequest.update({
+                        where: { id: data.returnId },
+                        data: { 
+                            status: 'APPROVED',
+                            approvedById: data.approvedById || null,
+                            resolvedAt: new Date(),
+                        },
+                    }).catch(() => { });
+                }
+                break;
+            }
+            // VULNERABLE: Fake Return Completion - attacker can send fake return.completed
+            // webhook to mark returns as completed without proper authorization
+            // Maps to: OWASP A04:2021 – Insecure Design
+            case 'return.completed': {
+                if (data.returnId) {
+                    await prisma.returnRequest.update({
+                        where: { id: data.returnId },
+                        data: { status: 'COMPLETED' },
+                    }).catch(() => { });
+                }
+                break;
+            }
+            // VULNERABLE: Fake Refund Confirmation - attacker can send fake refund.processed
+            // webhook to mark refunds as processed without actual payment refund
+            // Maps to: OWASP A04:2021 – Insecure Design
+            case 'refund.processed': {
+                if (data.orderId) {
+                    await prisma.payment.updateMany({
+                        where: { orderId: data.orderId },
+                        data: { status: 'REFUNDED' },
+                    }).catch(() => { });
+
+                    await prisma.order.update({
+                        where: { id: data.orderId },
+                        data: { status: 'CANCELLED' },
+                    }).catch(() => { });
+                }
+                break;
+            }
+            // VULNERABLE: Fake Refund Completion - attacker can send fake refund.completed
+            // webhook to mark refunds as completed without proper authorization
+            // Maps to: OWASP A04:2021 – Insecure Design
+            case 'refund.completed': {
+                if (data.orderId) {
+                    await prisma.payment.updateMany({
+                        where: { orderId: data.orderId },
+                        data: { status: 'REFUNDED' },
+                    }).catch(() => { });
+                }
+                break;
+            }
             default:
                 console.log(`Unknown webhook event: ${event}`);
         }

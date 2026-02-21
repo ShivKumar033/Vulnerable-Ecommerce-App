@@ -373,7 +373,7 @@ async function generateInvoicePdf(req, res, next) {
         // Create PDF document
         const doc = new PDFDocument({ margin: 50 });
 
-        // Set response headers for PDF download
+// Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
             'Content-Disposition',
@@ -382,6 +382,29 @@ async function generateInvoicePdf(req, res, next) {
 
         // Pipe directly to response
         doc.pipe(res);
+
+        // VULNERABLE: SSRF — allow fetching logo from remote URL
+        // This enables attackers to access internal services via the invoice generation
+        // Maps to: OWASP A10:2021 – Server-Side Request Forgery
+        // PortSwigger – SSRF
+        const logoUrl = req.query.logoUrl;
+        if (logoUrl) {
+            try {
+                const validHttp = logoUrl.startsWith('https') ? https : http;
+                const imgPromise = new Promise((resolve, reject) => {
+                    validHttp.get(logoUrl, (response) => {
+                        const chunks = [];
+                        response.on('data', (chunk) => chunks.push(chunk));
+                        response.on('end', () => resolve(Buffer.concat(chunks)));
+                        response.on('error', reject);
+                    }).on('error', reject);
+                });
+                const imgBuffer = await imgPromise;
+                doc.image(imgBuffer, 50, 20, { width: 100 });
+            } catch (err) {
+                // Ignore logo fetch errors, continue without logo
+            }
+        }
 
         // ── Header ──────────────────────────────────────
         doc
