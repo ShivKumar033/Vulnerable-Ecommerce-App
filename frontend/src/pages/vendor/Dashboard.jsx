@@ -20,17 +20,20 @@ const VendorDashboard = () => {
 
   const fetchDashboard = async () => {
     try {
-      const [statsRes, ordersRes] = await Promise.all([
-        api.get('/vendor/dashboard'),
-        api.get('/vendor/orders')
-      ])
-      setStats(statsRes.data || {
+      const response = await api.get('/vendor/dashboard')
+      setStats(response.data || {
         totalProducts: 0,
         totalOrders: 0,
         totalRevenue: 0,
         pendingReturns: 0
       })
-      setRecentOrders(ordersRes.data?.slice(0, 5) || [])
+      // Try to fetch recent orders
+      try {
+        const ordersRes = await api.get('/orders/vendor/my-orders')
+        setRecentOrders(ordersRes.data?.slice(0, 5) || [])
+      } catch (e) {
+        setRecentOrders([])
+      }
     } catch (error) {
       console.error('Error fetching dashboard:', error)
     } finally {
@@ -74,33 +77,45 @@ const VendorDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Link
           to="/vendor/products"
           className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
         >
           <h3 className="font-semibold text-lg mb-2">Manage Products</h3>
-          <p className="text-gray-600 text-sm">Add, edit, or remove your products</p>
+          <p className="text-gray-600 text-sm">Add, edit, or remove products</p>
         </Link>
         <Link
           to="/vendor/orders"
           className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
         >
           <h3 className="font-semibold text-lg mb-2">View Orders</h3>
-          <p className="text-gray-600 text-sm">Track and manage customer orders</p>
+          <p className="text-gray-600 text-sm">Track and manage orders</p>
+        </Link>
+        <Link
+          to="/vendor/returns"
+          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+        >
+          <h3 className="font-semibold text-lg mb-2">Handle Returns</h3>
+          <p className="text-gray-600 text-sm">Process return requests</p>
         </Link>
         <Link
           to="/vendor/discounts"
           className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
         >
-          <h3 className="font-semibold text-lg mb-2">Create Discounts</h3>
-          <p className="text-gray-600 text-sm">Offer discounts on your products</p>
+          <h3 className="font-semibold text-lg mb-2">Discounts</h3>
+          <p className="text-gray-600 text-sm">Create product discounts</p>
         </Link>
       </div>
 
       {/* Recent Orders */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold mb-4">Recent Orders</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Recent Orders</h2>
+          <Link to="/vendor/orders" className="text-primary-600 hover:text-primary-700">
+            View All
+          </Link>
+        </div>
         {recentOrders.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">

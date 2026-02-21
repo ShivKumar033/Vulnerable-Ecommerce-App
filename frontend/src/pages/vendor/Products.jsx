@@ -1,32 +1,36 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../../services/api'
+import { toast } from 'react-toastify'
 
 const VendorProducts = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
+  const [showModal, setShowModal] = useState(false)
+  const [editingProduct, setEditingProduct] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [csvFile, setCsvFile] = useState(null)
+  const [xmlFile, setXmlFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     stock: '',
     categoryId: '',
-    images: [],
-    isActive: true
+    images: [''],
+    variants: []
   })
-  const [submitting, setSubmitting] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const fileInputRef = useRef(null)
-  const xmlInputRef = useRef(null)
 
   useEffect(() => {
     fetchProducts()
+    fetchCategories()
   }, [])
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/vendor/products')
+      const response = await api.get('/products')
       setProducts(response.data || [])
     } catch (error) {
       console.error('Error fetching products:', error)
@@ -35,130 +39,137 @@ const VendorProducts = () => {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories')
+      setCategories(response.data || [])
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setLoading(true)
     try {
-      const data = {
-        name: formData.name,
-        description: formData.description,
+      const payload = {
+        ...formData,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
         categoryId: parseInt(formData.categoryId),
-        images: formData.images,
-        isActive: formData.isActive
+        images: formData.images.filter(img => img.trim() !== '')
       }
-      
-      if (editingId) {
-        await api.put(`/vendor/products/${editingId}`, data)
+
+      if (editingProduct) {
+        await api.put(`/products/${editingProduct.id}`, payload)
+        toast.success('Product updated!')
       } else {
-        await api.post('/vendor/products', data)
+        await api.post('/products', payload)
+        toast.success('Product created!')
       }
-      fetchProducts()
+      setShowModal(false)
       resetForm()
+      fetchProducts()
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to save product')
+      toast.error(error.response?.data?.message || 'Failed to save product')
     } finally {
-      setSubmitting(false)
+      setLoading(false)
     }
   }
 
   const handleEdit = (product) => {
+    setEditingProduct(product)
     setFormData({
-      name: product.name,
-      description: product.description,
-      price: product.price.toString(),
+      name: product.name || '',
+      description: product.description || '',
+      price: product.price?.toString() || '',
       stock: product.stock?.toString() || '',
       categoryId: product.categoryId?.toString() || '',
-      images: product.images || [],
-      isActive: product.isActive
+      images: product.images?.length > 0 ? product.images : [''],
+      variants: product.variants || []
     })
-    setEditingId(product.id)
-    setShowForm(true)
+    setShowModal(true)
   }
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this product?')) return
     try {
-      await api.delete(`/vendor/products/${id}`)
+      await api.delete(`/products/${id}`)
+      toast.success('Product deleted!')
       fetchProducts()
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to delete product')
+      toast.error(error.response?.data?.message || 'Failed to delete product')
+    }
+  }
+
+  const handleCsvUpload = async (e) => {
+    e.preventDefault()
+    if (!csvFile) return
+    
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', csvFile)
+
+    try {
+      await api.post('/import/products/csv', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      toast.success('CSV imported successfully!')
+      fetchProducts()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to import CSV')
+    } finally {
+      setUploading(false)
+      setCsvFile(null)
+    }
+  }
+
+  const handleXmlUpload = async (e) => {
+    e.preventDefault()
+    if (!xmlFile) return
+    
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', xmlFile)
+
+    try {
+      await api.post('/import/products/xml', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      toast.success('XML imported successfully!')
+      fetchProducts()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to import XML')
+    } finally {
+      setUploading(false)
+      setXmlFile(null)
     }
   }
 
   const resetForm = () => {
+    setEditingProduct(null)
     setFormData({
       name: '',
       description: '',
       price: '',
       stock: '',
       categoryId: '',
-      images: [],
-      isActive: true
+      images: [''],
+      variants: []
     })
-    setEditingId(null)
-    setShowForm(false)
   }
 
-  // CSV Import - VULNERABLE: No file validation
-  const handleCsvImport = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    setImporting(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      await api.post('/import/products', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      alert('Products imported successfully!')
-      fetchProducts()
-    } catch (error) {
-      alert(error.response?.data?.message || 'Failed to import products')
-    } finally {
-      setImporting(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+  const handleImageChange = (index, value) => {
+    const newImages = [...formData.images]
+    newImages[index] = value
+    setFormData({ ...formData, images: newImages })
   }
 
-  // XML Import - VULNERABLE: XXE
-  const handleXmlImport = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    setImporting(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      await api.post('/import/products/xml', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      alert('Products imported successfully!')
-      fetchProducts()
-    } catch (error) {
-      alert(error.response?.data?.message || 'Failed to import products')
-    } finally {
-      setImporting(false)
-      if (xmlInputRef.current) xmlInputRef.current.value = ''
-    }
+  const addImageField = () => {
+    setFormData({ ...formData, images: [...formData.images, ''] })
   }
 
-  // Add image URL - VULNERABLE: No validation
-  const handleAddImageUrl = () => {
-    const url = prompt('Enter image URL:')
-    if (url) {
-      setFormData({
-        ...formData,
-        images: [...formData.images, url]
-      })
-    }
-  }
-
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -168,54 +179,125 @@ const VendorProducts = () => {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Manage Products</h1>
-        <div className="flex space-x-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".csv"
-            onChange={handleCsvImport}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
-          >
-            {importing ? 'Importing...' : 'CSV Import'}
-          </button>
-          <input
-            type="file"
-            ref={xmlInputRef}
-            accept=".xml"
-            onChange={handleXmlImport}
-            className="hidden"
-          />
-          <button
-            onClick={() => xmlInputRef.current?.click()}
-            disabled={importing}
-            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:opacity-50"
-          >
-            {importing ? 'Importing...' : 'XML Import'}
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
-          >
-            Add Product
-          </button>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">My Products</h1>
+        <button
+          onClick={() => { resetForm(); setShowModal(true) }}
+          className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
+        >
+          Add Product
+        </button>
+      </div>
+
+      {/* Bulk Upload Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-bold mb-4">Bulk Import</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* CSV Upload */}
+          <form onSubmit={handleCsvUpload} className="border p-4 rounded">
+            <h3 className="font-semibold mb-2">Import via CSV</h3>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setCsvFile(e.target.files[0])}
+              className="mb-2 w-full"
+            />
+            <button
+              type="submit"
+              disabled={uploading || !csvFile}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {uploading ? 'Uploading...' : 'Upload CSV'}
+            </button>
+          </form>
+
+          {/* XML Upload */}
+          <form onSubmit={handleXmlUpload} className="border p-4 rounded">
+            <h3 className="font-semibold mb-2">Import via XML</h3>
+            <input
+              type="file"
+              accept=".xml"
+              onChange={(e) => setXmlFile(e.target.files[0])}
+              className="mb-2 w-full"
+            />
+            <button
+              type="submit"
+              disabled={uploading || !xmlFile}
+              className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              {uploading ? 'Uploading...' : 'Upload XML'}
+            </button>
+          </form>
         </div>
       </div>
 
-      {/* Product Form */}
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">
-            {editingId ? 'Edit Product' : 'Add Product'}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Products Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {products.map((product) => (
+              <tr key={product.id}>
+                <td className="px-6 py-4 whitespace-nowrap">{product.id}</td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center">
+                    {product.images?.[0] && (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-12 h-12 object-cover rounded mr-3"
+                      />
+                    )}
+                    <span className="font-medium">{product.name}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">${product.price?.toFixed(2)}</td>
+                <td className="px-6 py-4">
+                  <span className={product.stock < 10 ? 'text-red-600 font-bold' : ''}>
+                    {product.stock}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <button
+                    onClick={() => handleEdit(product)}
+                    className="text-primary-600 hover:text-primary-700 mr-3"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(product.id)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {products.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No products found. Add your first product!
+          </div>
+        )}
+      </div>
+
+      {/* Product Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">
+              {editingProduct ? 'Edit Product' : 'Add Product'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
                 <input
@@ -226,165 +308,100 @@ const VendorProducts = () => {
                   required
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
-                  required
+                  rows={3}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Stock</label>
-                <input
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                  required
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-md"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Stock</label>
+                  <input
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-md"
+                    required
+                  />
+                </div>
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">Category ID</label>
-                <input
-                  type="number"
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
                   value={formData.categoryId}
                   onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
-                />
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md"
-                rows={4}
-              />
-            </div>
-            
-            {/* Images */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Images</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {formData.images.map((url, idx) => (
-                  <div key={idx} className="relative">
-                    <img src={url} alt="" className="w-20 h-20 object-cover rounded" />
-                    <button
-                      type="button"
-                      onClick={() => setFormData({
-                        ...formData,
-                        images: formData.images.filter((_, i) => i !== idx)
-                      })}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                    >
-                      ×
-                    </button>
+
+              {/* Image URLs */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Image URLs</label>
+                {formData.images.map((img, idx) => (
+                  <div key={idx} className="flex mb-2">
+                    <input
+                      type="url"
+                      value={img}
+                      onChange={(e) => handleImageChange(idx, e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className="flex-1 px-3 py-2 border rounded-l-md"
+                    />
+                    {idx === formData.images.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={addImageField}
+                        className="px-3 py-2 bg-gray-200 rounded-r-md"
+                      >
+                        +
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={handleAddImageUrl}
-                className="text-primary-600 hover:text-primary-700 text-sm"
-              >
-                + Add Image URL
-              </button>
-            </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isActive"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="mr-2"
-              />
-              <label htmlFor="isActive" className="text-sm">Product is active</label>
-            </div>
-
-            <div className="flex space-x-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
-              >
-                {submitting ? 'Saving...' : 'Save'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 border rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowModal(false); resetForm() }}
+                  className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Product'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-
-      {/* Products Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td className="px-6 py-4">
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-gray-200 rounded flex-shrink-0">
-                      {product.images?.[0] && (
-                        <img src={product.images[0]} alt="" className="w-full h-full object-cover rounded" />
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-gray-500 text-sm">{product.description?.substring(0, 50)}...</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">${product.price}</td>
-                <td className="px-6 py-4">{product.stock}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    product.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {product.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="text-primary-600 hover:text-primary-700"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }

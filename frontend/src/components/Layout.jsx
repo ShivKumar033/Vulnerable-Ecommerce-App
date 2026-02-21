@@ -44,6 +44,9 @@ const Navbar = () => {
             <Link to="/products" className="text-gray-700 hover:text-primary-600">
               Products
             </Link>
+            <Link to="/categories" className="text-gray-700 hover:text-primary-600">
+              Categories
+            </Link>
             
             {user && (
               <>
@@ -149,6 +152,7 @@ const Footer = () => {
             <h4 className="font-semibold mb-4">Shop</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/products" className="hover:text-white">All Products</Link></li>
+              <li><Link to="/categories" className="hover:text-white">Categories</Link></li>
               <li><Link to="/cart" className="hover:text-white">Cart</Link></li>
             </ul>
           </div>

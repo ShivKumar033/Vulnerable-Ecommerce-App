@@ -15,10 +15,12 @@ import PasswordResetForm from './pages/auth/PasswordResetForm'
 import Home from './pages/Home'
 import Products from './pages/products/Products'
 import ProductDetail from './pages/products/ProductDetail'
+import Categories from './pages/products/Categories'
 import Cart from './pages/cart/Cart'
 import Checkout from './pages/checkout/Checkout'
 import OrderHistory from './pages/orders/OrderHistory'
 import OrderDetail from './pages/orders/OrderDetail'
+import InvoiceDetail from './pages/orders/InvoiceDetail'
 import Profile from './pages/user/Profile'
 import Addresses from './pages/user/Addresses'
 import Wishlist from './pages/user/Wishlist'
@@ -70,6 +72,8 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/categories/:id" element={<Categories />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
           <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
@@ -84,6 +88,7 @@ function App() {
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/orders" element={<OrderHistory />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/orders/:id/invoice" element={<InvoiceDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/addresses" element={<Addresses />} />
             <Route path="/wishlist" element={<Wishlist />} />

@@ -203,6 +203,16 @@ const OrderDetail = () => {
             </button>
           </div>
         )}
+
+        {/* Invoice Link */}
+        <div className="border-t pt-6 mt-6 flex justify-end">
+          <Link
+            to={`/orders/${order.id}/invoice`}
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
+            View Invoice →
+          </Link>
+        </div>
       </div>
     </div>
   )
