@@ -640,6 +640,67 @@ async function listVendorOrders(req, res, next) {
     }
 }
 
+/**
+ * PUT /api/v1/orders/:id/cancel
+ * VULNERABLE: Vertical Privilege Escalation - Any user can cancel any order
+ * No ownership check - any authenticated user can cancel any order
+ */
+async function cancelOrder(req, res, next) {
+    try {
+        const { id } = req.params;
+
+        // VULNERABLE: No ownership check - any user can cancel any order
+        // Maps to: OWASP A01:2021 – Broken Access Control
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: { items: true },
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Order not found.',
+            });
+        }
+
+        if (order.status === 'CANCELLED') {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Order is already cancelled.',
+            });
+        }
+
+        // Release stock for each item (race condition - no transaction)
+        for (const item of order.items) {
+            await prisma.product.update({
+                where: { id: item.productId },
+                data: { stock: { increment: item.quantity } },
+            });
+        }
+
+        await prisma.order.update({
+            where: { id },
+            data: { status: 'CANCELLED' },
+        });
+
+        await createAuditLog({
+            userId: req.user.id,
+            action: 'ORDER_CANCELLED_VIA_API',
+            entity: 'Order',
+            entityId: id,
+            metadata: { cancelledBy: req.user.id, role: req.user.role },
+            req,
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Order cancelled successfully.',
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export {
     checkout,
     listOrders,
@@ -647,4 +708,5 @@ export {
     updateOrderStatus,
     listAllOrders,
     listVendorOrders,
+    cancelOrder,
 };

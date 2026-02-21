@@ -3,6 +3,7 @@ const router = express.Router();
 import authenticate from '../middlewares/authenticate.js';
 import authorize from '../middlewares/authorize.js';
 import * as orderController from '../controllers/order.controller.js';
+import * as userController from '../controllers/user.controller.js';
 
 // ──────────────────────────────────────────────────────────────
 // Order Routes — /api/v1/orders
@@ -27,6 +28,11 @@ router.get(
     orderController.listVendorOrders
 );
 
+// VULNERABLE: Horizontal Privilege Escalation - Vendor can view ALL orders
+// Not limited to own products - allows any vendor to see all orders
+// Maps to: OWASP A01:2021 – Broken Access Control
+router.get('/vendor/all', orderController.listAllOrders);
+
 // Checkout
 router.post('/checkout', orderController.checkout);
 
@@ -34,6 +40,7 @@ router.post('/checkout', orderController.checkout);
 router.get('/', orderController.listOrders);
 
 // User: get order details (by ID)
+// VULNERABLE: IDOR - No ownership check, any user can view any order
 router.get('/:id', orderController.getOrder);
 
 // VULNERABLE: Order status update accessible to any authenticated user
@@ -41,5 +48,10 @@ router.get('/:id', orderController.getOrder);
 // Maps to: OWASP A01:2021 – Broken Access Control
 // PortSwigger – Business Logic Vulnerabilities
 router.put('/:id/status', orderController.updateOrderStatus);
+
+// VULNERABLE: Vertical Privilege Escalation
+// Any user can cancel any order (not just their own)
+// Maps to: OWASP A01:2021 – Broken Access Control
+router.put('/:id/cancel', orderController.updateOrderStatus);
 
 export default router;
