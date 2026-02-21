@@ -59,14 +59,14 @@ const AdminInventory = () => {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 min-w-[200px] px-3 py-2 border rounded-md"
           />
-            <label className="flex items-center space-x-2">
+          <label className="flex items-center space-x-2">
             <input
               type="checkbox"
               checked={lowStockFilter}
               onChange={(e) => setLowStockFilter(e.target.checked)}
               className="rounded"
             />
-            <span>Low Stock Only (<10)</span>
+            <span>Low Stock Only (&lt;10)</span>
           </label>
         </div>
       </div>
@@ -137,4 +137,3 @@ const AdminInventory = () => {
 }
 
 export default AdminInventory
-
