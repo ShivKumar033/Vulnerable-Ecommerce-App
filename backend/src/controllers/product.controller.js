@@ -285,6 +285,9 @@ async function createProduct(req, res, next) {
 /**
  * PUT /api/v1/products/:id
  * Update a product. Vendor owner or Admin only.
+ * 
+ * Also VULNERABLE: SQL injection — allows raw SQL in update
+ * Maps to: OWASP A03:2021 – Injection
  */
 async function updateProduct(req, res, next) {
     try {
@@ -314,7 +317,21 @@ async function updateProduct(req, res, next) {
             sku,
             categoryId,
             isActive,
+            rawSql,
         } = req.body;
+
+        // VULNERABLE: SQL injection — rawSql parameter allows raw SQL execution
+        // Attacker can inject arbitrary SQL commands
+        // Maps to: OWASP A03:2021 – Injection
+        // PortSwigger – SQL Injection
+        if (rawSql) {
+            try {
+                // Execute raw SQL update (vulnerable)
+                await prisma.$executeRawUnsafe(rawSql);
+            } catch (sqlErr) {
+                // Ignore SQL errors and continue with normal update
+            }
+        }
 
         const product = await prisma.product.update({
             where: { id },
@@ -357,10 +374,14 @@ async function updateProduct(req, res, next) {
 /**
  * DELETE /api/v1/products/:id
  * Delete a product. Admin or Vendor owner.
+ * 
+ * Also VULNERABLE: SQL injection — custom filter allows SQL injection
+ * Maps to: OWASP A03:2021 – Injection
  */
 async function deleteProduct(req, res, next) {
     try {
         const { id } = req.params;
+        const { condition } = req.query;
 
         const existing = await prisma.product.findUnique({ where: { id } });
         if (!existing) {
@@ -372,6 +393,21 @@ async function deleteProduct(req, res, next) {
 
         // VULNERABLE: No ownership check — any vendor can delete any product
         // Maps to: OWASP A01:2021 – Broken Access Control (IDOR)
+        
+        // VULNERABLE: SQL injection — condition parameter is used in raw query
+        // Allows attacker to inject SQL commands via query parameter
+        // Maps to: OWASP A03:2021 – Injection
+        // PortSwigger – SQL Injection
+        if (condition) {
+            // Execute custom SQL condition (vulnerable)
+            try {
+                await prisma.$executeRawUnsafe(
+                    `UPDATE "Product" SET "isActive" = false WHERE id = '${id}' AND (${condition})`
+                );
+            } catch (sqlErr) {
+                // Continue with normal delete even if condition fails
+            }
+        }
 
         await prisma.product.delete({ where: { id } });
 

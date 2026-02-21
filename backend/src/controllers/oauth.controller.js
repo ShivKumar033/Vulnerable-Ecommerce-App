@@ -40,10 +40,14 @@ async function googleLogin(req, res, next) {
 /**
  * GET /api/v1/auth/google/callback
  * Handle Google OAuth callback.
+ * 
+ * VULNERABLE: redirect_uri validation bypass
+ * Maps to: OWASP A01:2021 – Broken Access Control
+ * PortSwigger – OAuth authentication vulnerabilities
  */
 async function googleCallback(req, res, next) {
     try {
-        const { code, state } = req.query;
+        const { code, state, redirect_uri } = req.query;
 
         if (!code) {
             return res.status(400).json({ status: 'error', message: 'Authorization code is required.' });
@@ -51,6 +55,13 @@ async function googleCallback(req, res, next) {
 
         // VULNERABLE: state parameter is not validated (CSRF in OAuth)
         // Maps to: PortSwigger – OAuth authentication vulnerabilities
+
+        // VULNERABLE: redirect_uri can be overridden via query parameter
+        // OAuth best practices require redirect_uri to match exactly what's registered
+        // This allows attackers to redirect to malicious URLs after successful auth
+        // Maps to: OWASP A01:2021 – Broken Access Control
+        // PortSwigger – OAuth authentication vulnerabilities (redirect_uri validation bypass)
+        const callbackUrl = redirect_uri || GOOGLE_CALLBACK_URL;
 
         // Exchange code for tokens
         let tokenData;
@@ -62,7 +73,7 @@ async function googleCallback(req, res, next) {
                     code,
                     client_id: GOOGLE_CLIENT_ID,
                     client_secret: GOOGLE_CLIENT_SECRET,
-                    redirect_uri: GOOGLE_CALLBACK_URL,
+                    redirect_uri: callbackUrl,
                     grant_type: 'authorization_code',
                 }),
             });

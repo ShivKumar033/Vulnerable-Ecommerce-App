@@ -211,30 +211,60 @@ async function importProductsCsv(req, res, next) {
  * VULNERABLE: SSRF — if templateUrl is provided, fetches it without validation.
  * Maps to: OWASP A10:2021 – Server-Side Request Forgery
  * PortSwigger – SSRF
+ * 
+ * Also VULNERABLE: SQL injection — filter parameter uses raw SQL
+ * Maps to: OWASP A03:2021 – Injection
  */
 async function generateInvoice(req, res, next) {
     try {
         const { orderId } = req.params;
-        const { templateUrl } = req.query;
+        const { templateUrl, filter } = req.query;
 
         // VULNERABLE: IDOR — no ownership check
         // Maps to: OWASP A01:2021 – Broken Access Control
-        const order = await prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                user: { select: { id: true, email: true, firstName: true, lastName: true } },
-                items: {
-                    include: { product: { select: { id: true, title: true, price: true } } },
-                },
-                address: true,
-                payment: true,
-                coupon: true,
-            },
-        });
+        let query = `
+            SELECT o.*, u.email as user_email, u."firstName" as user_firstname, u."lastName" as user_lastname
+            FROM "Order" o
+            LEFT JOIN "User" u ON o."userId" = u.id
+            WHERE o.id = $1
+        `;
+        
+        const queryParams = [orderId];
+        
+        // VULNERABLE: SQL injection — filter parameter is used in raw query
+        // Attacker can inject SQL via filter query parameter
+        // Maps to: OWASP A03:2021 – Injection
+        // PortSwigger – SQL Injection
+        if (filter) {
+            // Append filter condition without sanitization
+            query += ` AND (${filter})`;
+        }
 
-        if (!order) {
+        const order = await prisma.$queryRawUnsafe(query, ...queryParams);
+        
+        if (!order || order.length === 0 || !order[0]) {
             return res.status(404).json({ status: 'error', message: 'Order not found.' });
         }
+
+        const orderData = order[0];
+
+        // Fetch related data
+        const orderItems = await prisma.orderItem.findMany({
+            where: { orderId: orderData.id },
+            include: { product: { select: { id: true, title: true, price: true } } },
+        });
+
+        const address = orderData.addressId ? await prisma.address.findUnique({
+            where: { id: orderData.addressId },
+        }) : null;
+
+        const payment = await prisma.payment.findFirst({
+            where: { orderId: orderData.id },
+        });
+
+        const coupon = orderData.couponId ? await prisma.coupon.findUnique({
+            where: { id: orderData.couponId },
+        }) : null;
 
         // VULNERABLE: SSRF — fetching template from user-provided URL
         // Maps to: OWASP A10:2021 – Server-Side Request Forgery
@@ -264,26 +294,26 @@ async function generateInvoice(req, res, next) {
 
         // Build invoice data
         const invoice = {
-            invoiceNumber: `INV-${order.orderNumber}`,
-            date: order.createdAt.toISOString(),
+            invoiceNumber: `INV-${orderData.orderNumber}`,
+            date: orderData.createdAt,
             customer: {
-                name: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim(),
-                email: order.user?.email || '',
+                name: `${orderData.user_firstname || ''} ${orderData.user_lastname || ''}`.trim(),
+                email: orderData.user_email || '',
             },
-            address: order.address || null,
-            items: order.items.map((i) => ({
+            address: address || null,
+            items: orderItems.map((i) => ({
                 product: i.product?.title || 'N/A',
                 quantity: i.quantity,
                 unitPrice: i.price,
                 total: parseFloat(i.price) * i.quantity,
             })),
-            subtotal: order.subtotal,
-            tax: order.tax,
-            shipping: order.shippingCost,
-            discount: order.discount,
-            total: order.totalAmount,
-            paymentStatus: order.payment?.status || 'N/A',
-            coupon: order.coupon?.code || null,
+            subtotal: orderData.subtotal,
+            tax: orderData.tax,
+            shipping: orderData.shippingCost,
+            discount: orderData.discount,
+            total: orderData.totalAmount,
+            paymentStatus: payment?.status || 'N/A',
+            coupon: coupon?.code || null,
             templateContent, // include fetched template if any
         };
 
@@ -300,7 +330,13 @@ async function generateInvoice(req, res, next) {
             data: { invoice },
         });
     } catch (error) {
-        next(error);
+        // VULNERABLE: Exposing SQL error details to client
+        return res.status(500).json({
+            status: 'error',
+            message: 'Failed to generate invoice.',
+            error: error.message,
+            query: req.query.filter, // leaks the injection input back
+        });
     }
 }
 

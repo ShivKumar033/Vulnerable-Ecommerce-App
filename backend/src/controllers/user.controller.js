@@ -727,6 +727,72 @@ async function getDashboard(req, res, next) {
     }
 }
 
+/**
+ * GET /api/v1/users/profile/render
+ * Render user profile bio (SSTI vulnerable endpoint)
+ * 
+ * VULNERABLE: Server-Side Template Injection (SSTI)
+ * Maps to: OWASP A03:2021 – Injection
+ * PortSwigger – Server-Side Template Injection
+ */
+async function renderProfileBio(req, res, next) {
+    try {
+        const userId = req.user.id;
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { bio: true, displayName: true, firstName: true, lastName: true },
+        });
+
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found.' });
+        }
+
+        // VULNERABLE: SSTI - direct rendering of user input without sanitization
+        // Using simple template engine that evaluates expressions
+        const template = user.bio || '';
+        
+        // Simple template evaluation (unsafe)
+        let rendered = template;
+        
+        // Replace common template patterns
+        // This is intentionally vulnerable for security testing
+        try {
+            // Attempt to evaluate embedded expressions
+            // Pattern: {{ expression }} or <%= expression %>
+            rendered = template.replace(/\{\{(.*?)\}\}/g, (match, expr) => {
+                try {
+                    // Dangerous: evaluating user input
+                    return eval(expr);
+                } catch (e) {
+                    return match;
+                }
+            });
+            
+            rendered = rendered.replace(/<%=(.*?)%>/g, (match, expr) => {
+                try {
+                    return eval(expr);
+                } catch (e) {
+                    return match;
+                }
+            });
+        } catch (e) {
+            // Return raw if evaluation fails
+        }
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                displayName: user.displayName || `${user.firstName} ${user.lastName}`,
+                bioRendered: rendered,
+                bioRaw: user.bio,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export {
     getProfile,
     updateProfile,
@@ -745,4 +811,5 @@ export {
     addSavedPayment,
     deleteSavedPayment,
     getDashboard,
+    renderProfileBio,
 };

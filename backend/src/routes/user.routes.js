@@ -14,6 +14,11 @@ const router = Router();
 // Profile
 router.get('/profile', authenticate, userController.getProfile);
 
+// VULNERABLE: SSTI - Render user profile bio with template injection
+// Maps to: OWASP A03:2021 – Injection
+// PortSwigger – Server-Side Template Injection
+router.get('/profile/render', authenticate, userController.renderProfileBio);
+
 // VULNERABLE: Mass assignment — role can be changed via updateProfile
 // Maps to: OWASP A01:2021 – Broken Access Control
 // This allows vertical privilege escalation (USER -> ADMIN)
