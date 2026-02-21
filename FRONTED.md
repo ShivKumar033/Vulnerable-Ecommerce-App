@@ -17,8 +17,8 @@ IMPORTANT RULES:
 - Preserve all intentional vulnerabilities on frontend side too
 - Do not add client-side security fixes
 
-Here is my master.md: [attach]
-Here is my backend API structure / routes: [attach or paste]
+Here is my master.md: @MASRTER.md
+Here is my backend API structure / routes: /backend/src/routers/....
 
 ---
 
