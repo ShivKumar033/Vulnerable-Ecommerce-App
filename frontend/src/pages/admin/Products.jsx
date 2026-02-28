@@ -14,7 +14,8 @@ const AdminProducts = () => {
   const fetchProducts = async () => {
     try {
       const response = await api.get('/products')
-      setProducts(response.data.products || response.data || [])
+      const productsData = response.data.data?.products || response.data.data || response.data.products || response.data
+      setProducts(Array.isArray(productsData) ? productsData : [])
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {

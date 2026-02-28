@@ -24,8 +24,8 @@ const ProductDetail = () => {
   const fetchProduct = async () => {
     try {
       const response = await api.get(`/products/${id}`)
-      setProduct(response.data)
-      if (response.data.images?.length > 0) {
+      setProduct(response.data.data?.product || response.data.data)
+      if (response.data.data?.product?.images?.length > 0) {
         setSelectedImage(0)
       }
     } catch (error) {

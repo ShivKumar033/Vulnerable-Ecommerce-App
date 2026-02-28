@@ -27,6 +27,7 @@ async function listProducts(req, res, next) {
             rating,
             sortBy = 'createdAt',
             order = 'desc',
+            vendorId,
         } = req.query;
 
         const pageNum = parseInt(page, 10) || 1;
@@ -35,6 +36,11 @@ async function listProducts(req, res, next) {
 
         // Build filter
         const where = { isActive: true };
+
+        // If vendorId is provided (vendor-specific listing), filter by vendor
+        if (vendorId) {
+            where.vendorId = vendorId;
+        }
 
         if (category) {
             where.categoryId = category;
@@ -302,11 +308,16 @@ async function updateProduct(req, res, next) {
             });
         }
 
-        // VULNERABLE: Missing ownership check for vendors — any authenticated
-        // vendor can update any product, not just their own.
-        // Maps to: OWASP A01:2021 – Broken Access Control (IDOR)
-        // PortSwigger – Access Control Vulnerabilities
-        // (Only admins and the actual vendor owner should be allowed)
+        // Ownership check - only vendor owner or admin can update
+        const isAdmin = req.user.role === 'ADMIN';
+        const isOwner = existing.vendorId === req.user.id;
+        
+        if (!isAdmin && !isOwner) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'You can only update your own products.',
+            });
+        }
 
         const {
             title,
@@ -391,8 +402,16 @@ async function deleteProduct(req, res, next) {
             });
         }
 
-        // VULNERABLE: No ownership check — any vendor can delete any product
-        // Maps to: OWASP A01:2021 – Broken Access Control (IDOR)
+        // Ownership check - only vendor owner or admin can delete
+        const isAdmin = req.user.role === 'ADMIN';
+        const isOwner = existing.vendorId === req.user.id;
+        
+        if (!isAdmin && !isOwner) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'You can only delete your own products.',
+            });
+        }
         
         // VULNERABLE: SQL injection — condition parameter is used in raw query
         // Allows attacker to inject SQL commands via query parameter

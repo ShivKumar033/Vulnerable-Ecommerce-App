@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import api from '../../services/api'
-import { useAuth } from '../../contexts/AuthContext'
 
 const VendorDashboard = () => {
-  const { user } = useAuth()
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
-    pendingReturns: 0
-  })
+  const [stats, setStats] = useState(null)
   const [recentOrders, setRecentOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -21,21 +14,10 @@ const VendorDashboard = () => {
   const fetchDashboard = async () => {
     try {
       const response = await api.get('/vendor/dashboard')
-      setStats(response.data || {
-        totalProducts: 0,
-        totalOrders: 0,
-        totalRevenue: 0,
-        pendingReturns: 0
-      })
-      // Try to fetch recent orders
-      try {
-        const ordersRes = await api.get('/orders/vendor/my-orders')
-        setRecentOrders(ordersRes.data?.slice(0, 5) || [])
-      } catch (e) {
-        setRecentOrders([])
-      }
+      setStats(response.data.data.stats)
+      setRecentOrders(response.data.data.recentOrders || [])
     } catch (error) {
-      console.error('Error fetching dashboard:', error)
+      toast.error('Failed to load vendor dashboard')
     } finally {
       setLoading(false)
     }
@@ -43,111 +25,87 @@ const VendorDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Vendor Dashboard</h1>
-        <p className="text-gray-600">Welcome back, {user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email}</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Vendor Dashboard</h1>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-gray-500 text-sm">Total Products</h3>
-          <p className="text-3xl font-bold mt-2">{stats.totalProducts}</p>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Total Products</div>
+          <div className="text-3xl font-bold text-gray-900 mt-2">{stats?.totalProducts || 0}</div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-gray-500 text-sm">Total Orders</h3>
-          <p className="text-3xl font-bold mt-2">{stats.totalOrders}</p>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Active Products</div>
+          <div className="text-3xl font-bold text-green-600 mt-2">{stats?.activeProducts || 0}</div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-gray-500 text-sm">Total Revenue</h3>
-          <p className="text-3xl font-bold mt-2">${stats.totalRevenue?.toFixed(2)}</p>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Total Orders</div>
+          <div className="text-3xl font-bold text-blue-600 mt-2">{stats?.totalOrders || 0}</div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-gray-500 text-sm">Pending Returns</h3>
-          <p className="text-3xl font-bold mt-2">{stats.pendingReturns}</p>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Total Revenue</div>
+          <div className="text-3xl font-bold text-purple-600 mt-2">
+            ${(stats?.totalRevenue || 0).toFixed(2)}
+          </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Link
-          to="/vendor/products"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
-        >
-          <h3 className="font-semibold text-lg mb-2">Manage Products</h3>
-          <p className="text-gray-600 text-sm">Add, edit, or remove products</p>
-        </Link>
-        <Link
-          to="/vendor/orders"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
-        >
-          <h3 className="font-semibold text-lg mb-2">View Orders</h3>
-          <p className="text-gray-600 text-sm">Track and manage orders</p>
-        </Link>
-        <Link
-          to="/vendor/returns"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
-        >
-          <h3 className="font-semibold text-lg mb-2">Handle Returns</h3>
-          <p className="text-gray-600 text-sm">Process return requests</p>
-        </Link>
-        <Link
-          to="/vendor/discounts"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
-        >
-          <h3 className="font-semibold text-lg mb-2">Discounts</h3>
-          <p className="text-gray-600 text-sm">Create product discounts</p>
-        </Link>
-      </div>
+      {/* Pending Returns Alert */}
+      {stats?.pendingReturns > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <span className="text-yellow-600 font-medium">
+              You have {stats.pendingReturns} pending return request(s)
+            </span>
+            <a href="/vendor/returns" className="ml-4 text-yellow-700 underline">
+              View Returns
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Recent Orders */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Recent Orders</h2>
-          <Link to="/vendor/orders" className="text-primary-600 hover:text-primary-700">
-            View All
-          </Link>
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
         </div>
-        {recentOrders.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 text-left">Order ID</th>
-                  <th className="px-4 py-2 text-left">Customer</th>
-                  <th className="px-4 py-2 text-left">Total</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="border-t">
-                    <td className="px-4 py-3">#{order.id}</td>
-                    <td className="px-4 py-3">{order.user?.name || 'N/A'}</td>
-                    <td className="px-4 py-3">${order.total?.toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-500">No orders yet</p>
-        )}
+        <div className="p-6">
+          {recentOrders.length === 0 ? (
+            <p className="text-gray-500">No orders yet</p>
+          ) : (
+            <div className="space-y-4">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{order.orderNumber}</p>
+                    <p className="text-sm text-gray-500">
+                      {order.user?.firstName} {order.user?.lastName}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-gray-900">${order.totalAmount}</p>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                      ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
+                        order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                        order.status === 'PAID' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'}`}>
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

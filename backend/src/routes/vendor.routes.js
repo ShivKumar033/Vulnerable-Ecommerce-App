@@ -3,7 +3,6 @@ import authenticate from '../middlewares/authenticate.js';
 import authorize from '../middlewares/authorize.js';
 import * as vendorController from '../controllers/vendor.controller.js';
 import * as productController from '../controllers/product.controller.js';
-import * as adminController from '../controllers/admin.controller.js';
 
 const router = Router();
 
@@ -13,67 +12,56 @@ const router = Router();
 // ──────────────────────────────────────────────────────────────
 
 // Dashboard
-router.get('/dashboard', authenticate, authorize('VENDOR'), vendorController.getProfile);
-
-// VULNERABLE: Missing role check - any authenticated user can access vendor dashboard
-// Maps to: OWASP A01:2021 – Broken Access Control
-router.get('/dashboard/all', authenticate, vendorController.getDashboard);
+router.get('/dashboard', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.getDashboard);
 
 // Vendor discounts management
-router.get('/discounts', authenticate, authorize('VENDOR'), vendorController.listDiscounts);
-router.post('/discounts', authenticate, authorize('VENDOR'), vendorController.createDiscount);
-router.put('/discounts/:id', authenticate, authorize('VENDOR'), vendorController.updateDiscount);
-router.delete('/discounts/:id', authenticate, authorize('VENDOR'), vendorController.deleteDiscount);
-
-// VULNERABLE: Horizontal Privilege Escalation
-// Any vendor can view any vendor's discounts
-// Maps to: OWASP A01:2021 – Broken Access Control
-router.get('/discounts/all', authenticate, vendorController.listDiscounts);
+router.get('/discounts', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.listDiscounts);
+router.post('/discounts', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.createDiscount);
+router.put('/discounts/:id', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.updateDiscount);
+router.delete('/discounts/:id', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.deleteDiscount);
 
 // Vendor profile (SSTI vulnerable)
-router.get('/profile', authenticate, authorize('VENDOR'), vendorController.getProfile);
-router.put('/profile', authenticate, authorize('VENDOR'), vendorController.updateProfile);
-router.get('/profile/render', authenticate, authorize('VENDOR'), vendorController.renderProfileBio);
-
-// VULNERABLE: Vertical Privilege Escalation
-// Support role can access and modify vendor profile
-// Maps to: OWASP A01:2021 – Broken Access Control
-router.put('/profile/impersonate', authenticate, vendorController.updateProfile);
+router.get('/profile', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.getProfile);
+router.put('/profile', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.updateProfile);
+router.get('/profile/render', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.renderProfileBio);
 
 // Vendor returns management
-router.get('/returns', authenticate, authorize('VENDOR'), vendorController.listReturns);
-router.put('/returns/:id/approve', authenticate, authorize('VENDOR'), vendorController.approveReturn);
-router.put('/returns/:id/reject', authenticate, authorize('VENDOR'), vendorController.rejectReturn);
-
-// VULNERABLE: Horizontal Privilege Escalation
-// Any vendor can view all return requests
-router.get('/returns/all', authenticate, vendorController.listReturns);
-
-// VULNERABLE: Missing role check - Support can approve/reject vendor returns
-router.put('/returns/:id/approve-privileged', authenticate, vendorController.approveReturn);
-router.put('/returns/:id/reject-privileged', authenticate, vendorController.rejectReturn);
+router.get('/returns', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.listReturns);
+router.put('/returns/:id/approve', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.approveReturn);
+router.put('/returns/:id/reject', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.rejectReturn);
 
 // ──────────────────────────────────────────────────────────────
-// Product Management - Horizontal Privilege Escalation
+// Product Management - Vendor Only
 // ──────────────────────────────────────────────────────────────
 
-// VULNERABLE: Horizontal Privilege Escalation
-// Any vendor can view any vendor's products
-router.get('/products/all', authenticate, productController.listProducts);
+// Create product - Vendor or Admin only
+router.post('/products', authenticate, authorize('VENDOR', 'ADMIN'), productController.createProduct);
 
-// VULNERABLE: Missing role check - Support can access product management
-router.post('/products', authenticate, productController.createProduct);
+// List vendor's products - automatically filter by authenticated vendor
+router.get('/products', authenticate, authorize('VENDOR', 'ADMIN'), async (req, res, next) => {
+    try {
+        // Add vendorId filter to only show current vendor's products
+        req.query.vendorId = req.user.id;
+        await productController.listProducts(req, res, next);
+    } catch (error) {
+        next(error);
+    }
+});
 
-// VULNERABLE: Missing role check - any user can create products
-router.post('/products/create-as-vendor', authenticate, productController.createProduct);
+// Update product - Vendor can only update their own products
+router.put('/products/:id', authenticate, authorize('VENDOR', 'ADMIN'), productController.updateProduct);
 
-// VULNERABLE: Horizontal Privilege Escalation
-// Any vendor can update any product
-router.put('/products/:id', authenticate, productController.updateProduct);
+// Delete product - Vendor can only delete their own products
+router.delete('/products/:id', authenticate, authorize('VENDOR', 'ADMIN'), productController.deleteProduct);
 
-// VULNERABLE: Horizontal Privilege Escalation
-// Any vendor can delete any product
-router.delete('/products/:id', authenticate, productController.deleteProduct);
+// Upload product images
+router.post('/products/:id/images', authenticate, authorize('VENDOR', 'ADMIN'), productController.uploadProductImages);
+
+// Fetch image from URL
+router.post('/products/:id/images/url', authenticate, authorize('VENDOR', 'ADMIN'), productController.fetchProductImageFromUrl);
+
+// Vendor's orders
+router.get('/orders', authenticate, authorize('VENDOR', 'ADMIN'), vendorController.listOrders);
 
 export default router;
 

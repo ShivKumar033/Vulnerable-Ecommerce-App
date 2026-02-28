@@ -71,11 +71,9 @@ async function getProfile(req, res, next) {
  */
 async function updateProfile(req, res, next) {
     try {
-        const { firstName, lastName, phone, avatar, role, bio, displayName } = req.body;
+        // Only allow these fields to be updated (no role, no mass assignment)
+        const { firstName, lastName, phone, avatar, bio, displayName } = req.body;
 
-        // VULNERABLE: Mass assignment — client can send `role` to escalate privileges
-        // Maps to: OWASP A01:2021 – Broken Access Control
-        // PortSwigger – Access Control Vulnerabilities
         const user = await prisma.user.update({
             where: { id: req.user.id },
             data: {
@@ -83,7 +81,7 @@ async function updateProfile(req, res, next) {
                 ...(lastName !== undefined && { lastName }),
                 ...(phone !== undefined && { phone }),
                 ...(avatar !== undefined && { avatar }),
-                ...(role !== undefined && { role }), // VULNERABLE: role update allowed
+                // Role cannot be changed via this endpoint - security fix
                 ...(bio !== undefined && { bio }),
                 ...(displayName !== undefined && { displayName }),
             },
@@ -328,11 +326,15 @@ async function updateAddress(req, res, next) {
     try {
         const { id } = req.params;
 
-        // VULNERABLE: IDOR — no ownership check
-        // Maps to: OWASP A01:2021 – Broken Access Control
+        // IDOR Protection - check ownership
         const existing = await prisma.address.findUnique({ where: { id } });
         if (!existing) {
             return res.status(404).json({ status: 'error', message: 'Address not found.' });
+        }
+        
+        // Verify the address belongs to the authenticated user
+        if (existing.userId !== req.user.id) {
+            return res.status(403).json({ status: 'error', message: 'Access denied.' });
         }
 
         const { label, fullName, addressLine1, addressLine2, city, state, postalCode, country, phone, isDefault } = req.body;
@@ -377,11 +379,15 @@ async function deleteAddress(req, res, next) {
     try {
         const { id } = req.params;
 
-        // VULNERABLE: IDOR — no ownership check
-        // Maps to: OWASP A01:2021 – Broken Access Control
+        // IDOR Protection - check ownership
         const existing = await prisma.address.findUnique({ where: { id } });
         if (!existing) {
             return res.status(404).json({ status: 'error', message: 'Address not found.' });
+        }
+        
+        // Verify the address belongs to the authenticated user
+        if (existing.userId !== req.user.id) {
+            return res.status(403).json({ status: 'error', message: 'Access denied.' });
         }
 
         await prisma.address.delete({ where: { id } });
@@ -640,11 +646,15 @@ async function deleteSavedPayment(req, res, next) {
     try {
         const { id } = req.params;
 
-        // VULNERABLE: IDOR — no ownership check
-        // Maps to: OWASP A01:2021 – Broken Access Control
+        // IDOR Protection - check ownership
         const existing = await prisma.savedPaymentMethod.findUnique({ where: { id } });
         if (!existing) {
             return res.status(404).json({ status: 'error', message: 'Payment method not found.' });
+        }
+        
+        // Verify the payment method belongs to the authenticated user
+        if (existing.userId !== req.user.id) {
+            return res.status(403).json({ status: 'error', message: 'Access denied.' });
         }
 
         await prisma.savedPaymentMethod.delete({ where: { id } });

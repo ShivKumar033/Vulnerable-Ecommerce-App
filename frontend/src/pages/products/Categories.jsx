@@ -20,7 +20,7 @@ const Categories = () => {
   const fetchCategories = async () => {
     try {
       const response = await api.get('/categories')
-      setCategories(response.data || [])
+      setCategories(response.data.data?.categories || response.data.data || [])
     } catch (error) {
       console.error('Error fetching categories:', error)
     } finally {
@@ -34,8 +34,9 @@ const Categories = () => {
         api.get(`/categories/${categoryId}`),
         api.get(`/products?categoryId=${categoryId}`)
       ])
-      setSelectedCategory(categoryRes.data)
-      setProducts(productsRes.data || [])
+      setSelectedCategory(categoryRes.data.data?.category || categoryRes.data.data)
+      const productsData = productsRes.data.data?.products || productsRes.data.data || productsRes.data.products || productsRes.data
+      setProducts(productsData)
     } catch (error) {
       console.error('Error fetching category:', error)
     } finally {

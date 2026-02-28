@@ -1,343 +1,307 @@
 import { useState, useEffect } from 'react'
-import api from '../../services/api'
 import { toast } from 'react-toastify'
+import api from '../../services/api'
 
 const VendorDiscounts = () => {
   const [discounts, setDiscounts] = useState([])
-  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingDiscount, setEditingDiscount] = useState(null)
-
   const [formData, setFormData] = useState({
-    code: '',
-    type: 'PERCENTAGE',
-    value: '',
-    productId: '',
-    minPurchase: '',
+    name: '',
+    description: '',
+    discountType: 'percentage',
+    discountValue: '',
+    minOrderAmount: '',
     maxUses: '',
+    startsAt: '',
     expiresAt: '',
-    active: true
   })
 
   useEffect(() => {
     fetchDiscounts()
-    fetchProducts()
   }, [])
 
   const fetchDiscounts = async () => {
     try {
       const response = await api.get('/vendor/discounts')
-      setDiscounts(response.data || [])
+      setDiscounts(response.data.data.discounts || [])
     } catch (error) {
-      console.error('Error fetching discounts:', error)
-      // Try alternative endpoint
-      try {
-        const altResponse = await api.get('/vendor/discounts/all')
-        setDiscounts(altResponse.data || [])
-      } catch (e) {
-        console.error('Error fetching all discounts:', e)
-      }
+      toast.error('Failed to load discounts')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchProducts = async () => {
-    try {
-      const response = await api.get('/products')
-      setProducts(response.data || [])
-    } catch (error) {
-      console.error('Error fetching products:', error)
     }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
     try {
-      const payload = {
+      const data = {
         ...formData,
-        value: parseFloat(formData.value),
-        productId: formData.productId ? parseInt(formData.productId) : null,
-        minPurchase: formData.minPurchase ? parseFloat(formData.minPurchase) : 0,
-        maxUses: formData.maxUses ? parseInt(formData.maxUses) : null,
+        discountValue: parseFloat(formData.discountValue),
+        minOrderAmount: formData.minOrderAmount ? parseFloat(formData.minOrderAmount) : null,
+        maxUses: formData.maxUses ? parseInt(formData.maxUses, 10) : null,
       }
-
+      
       if (editingDiscount) {
-        await api.put(`/vendor/discounts/${editingDiscount.id}`, payload)
-        toast.success('Discount updated!')
+        await api.put(`/vendor/discounts/${editingDiscount.id}`, data)
+        toast.success('Discount updated')
       } else {
-        await api.post('/vendor/discounts', payload)
-        toast.success('Discount created!')
+        await api.post('/vendor/discounts', data)
+        toast.success('Discount created')
       }
       setShowModal(false)
+      setEditingDiscount(null)
       resetForm()
       fetchDiscounts()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save discount')
-    } finally {
-      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this discount?')) return
+    try {
+      await api.delete(`/vendor/discounts/${id}`)
+      toast.success('Discount deleted')
+      fetchDiscounts()
+    } catch (error) {
+      toast.error('Failed to delete discount')
     }
   }
 
   const handleEdit = (discount) => {
     setEditingDiscount(discount)
     setFormData({
-      code: discount.code || '',
-      type: discount.type || 'PERCENTAGE',
-      value: discount.value?.toString() || '',
-      productId: discount.productId?.toString() || '',
-      minPurchase: discount.minPurchase?.toString() || '',
-      maxUses: discount.maxUses?.toString() || '',
+      name: discount.name,
+      description: discount.description || '',
+      discountType: discount.discountType,
+      discountValue: discount.discountValue,
+      minOrderAmount: discount.minOrderAmount || '',
+      maxUses: discount.maxUses || '',
+      startsAt: discount.startsAt ? discount.startsAt.split('T')[0] : '',
       expiresAt: discount.expiresAt ? discount.expiresAt.split('T')[0] : '',
-      active: discount.active !== false
     })
     setShowModal(true)
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this discount?')) return
-    try {
-      await api.delete(`/vendor/discounts/${id}`)
-      toast.success('Discount deleted!')
-      fetchDiscounts()
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete discount')
-    }
-  }
-
-  const handleToggle = async (id, currentStatus) => {
-    try {
-      await api.put(`/vendor/discounts/${id}`, { active: !currentStatus })
-      toast.success(`Discount ${!currentStatus ? 'enabled' : 'disabled'}!`)
-      fetchDiscounts()
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update discount')
-    }
-  }
-
   const resetForm = () => {
-    setEditingDiscount(null)
     setFormData({
-      code: '',
-      type: 'PERCENTAGE',
-      value: '',
-      productId: '',
-      minPurchase: '',
+      name: '',
+      description: '',
+      discountType: 'percentage',
+      discountValue: '',
+      minOrderAmount: '',
       maxUses: '',
+      startsAt: '',
       expiresAt: '',
-      active: true
     })
   }
 
-  if (loading && discounts.length === 0) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Product Discounts</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">My Discounts</h1>
         <button
-          onClick={() => { resetForm(); setShowModal(true) }}
-          className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
+          onClick={() => {
+            setEditingDiscount(null)
+            resetForm()
+            setShowModal(true)
+          }}
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
         >
           Create Discount
         </button>
       </div>
 
-      {/* Discounts Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Min Order</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usage</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valid Until</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {discounts.map((discount) => (
               <tr key={discount.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="font-mono font-bold">{discount.code}</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {discount.type === 'PERCENTAGE' ? 'Percentage' : 'Fixed Amount'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {discount.type === 'PERCENTAGE' ? `${discount.value}%` : `$${discount.value}`}
-                </td>
                 <td className="px-6 py-4">
-                  {discount.product?.name || 'All Products'}
+                  <div className="font-medium text-gray-900">{discount.name}</div>
+                  {discount.description && (
+                    <div className="text-sm text-gray-500">{discount.description}</div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {discount.usedCount || 0} / {discount.maxUses || '∞'}
+                  {discount.discountType === 'percentage' 
+                    ? `${discount.discountValue}%` 
+                    : `$${discount.discountValue}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <button
-                    onClick={() => handleToggle(discount.id, discount.active)}
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      discount.active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {discount.active ? 'Active' : 'Inactive'}
-                  </button>
+                  {discount.minOrderAmount ? `$${discount.minOrderAmount}` : '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
+                  {discount.currentUses} / {discount.maxUses || '∞'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                    ${discount.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {discount.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {discount.expiresAt 
+                    ? new Date(discount.expiresAt).toLocaleDateString() 
+                    : 'No expiry'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
                     onClick={() => handleEdit(discount)}
-                    className="text-primary-600 hover:text-primary-700 mr-3"
+                    className="text-primary-600 hover:text-primary-900 mr-4"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(discount.id)}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-red-600 hover:text-red-900"
                   >
                     Delete
                   </button>
                 </td>
               </tr>
             ))}
+            {discounts.length === 0 && (
+              <tr>
+                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                  No discounts yet. Click "Create Discount" to add one.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
-        {discounts.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No discounts found. Create your first discount!
-          </div>
-        )}
       </div>
 
-      {/* Discount Modal */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">
+            <h2 className="text-xl font-bold mb-4">
               {editingDiscount ? 'Edit Discount' : 'Create Discount'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Discount Code</label>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
                 <input
                   type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="e.g., SUMMER20"
                   required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
                 />
               </div>
-
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={2}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Type</label>
+                  <label className="block text-sm font-medium text-gray-700">Type</label>
                   <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-md"
+                    value={formData.discountType}
+                    onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
                   >
-                    <option value="PERCENTAGE">Percentage</option>
-                    <option value="FIXED">Fixed Amount</option>
+                    <option value="percentage">Percentage</option>
+                    <option value="fixed">Fixed Amount</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Value</label>
+                  <label className="block text-sm font-medium text-gray-700">Value</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-md"
                     required
+                    value={formData.discountValue}
+                    onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Apply to Product (Optional)</label>
-                <select
-                  value={formData.productId}
-                  onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="">All Products</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>{product.name}</option>
-                  ))}
-                </select>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Min Purchase ($)</label>
+                  <label className="block text-sm font-medium text-gray-700">Min Order ($)</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.minPurchase}
-                    onChange={(e) => setFormData({ ...formData, minPurchase: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="0"
+                    value={formData.minOrderAmount}
+                    onChange={(e) => setFormData({ ...formData, minOrderAmount: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Max Uses</label>
+                  <label className="block text-sm font-medium text-gray-700">Max Uses</label>
                   <input
                     type="number"
                     value={formData.maxUses}
                     onChange={(e) => setFormData({ ...formData, maxUses: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="Unlimited"
+                    placeholder="Leave empty for unlimited"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Expires At</label>
-                <input
-                  type="date"
-                  value={formData.expiresAt}
-                  onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                  <input
+                    type="date"
+                    value={formData.startsAt}
+                    onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">End Date</label>
+                  <input
+                    type="date"
+                    value={formData.expiresAt}
+                    onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 border p-2"
+                  />
+                </div>
               </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="active"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="active" className="text-sm font-medium">Active</label>
-              </div>
-
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => { setShowModal(false); resetForm() }}
-                  className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                  onClick={() => {
+                    setShowModal(false)
+                    setEditingDiscount(null)
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
                 >
-                  {loading ? 'Saving...' : 'Save Discount'}
+                  {editingDiscount ? 'Update' : 'Create'}
                 </button>
               </div>
             </form>

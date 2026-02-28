@@ -580,6 +580,55 @@ async function getDashboard(req, res, next) {
     }
 }
 
+/**
+ * GET /api/v1/vendor/orders
+ * List vendor's orders
+ */
+async function listOrders(req, res, next) {
+    try {
+        const vendorId = req.user.id;
+        const { status, page = 1, limit = 20 } = req.query;
+        const pageNum = parseInt(page, 10) || 1;
+        const pageSize = parseInt(limit, 10) || 20;
+        const skip = (pageNum - 1) * pageSize;
+
+        const where = {
+            items: { some: { product: { vendorId } } },
+        };
+
+        if (status) {
+            where.status = status;
+        }
+
+        const [orders, totalCount] = await Promise.all([
+            prisma.order.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: { select: { id: true, email: true, firstName: true, lastName: true } },
+                    items: {
+                        where: { product: { vendorId } },
+                        include: { product: { select: { id: true, title: true, images: { where: { isPrimary: true }, take: 1 } } } },
+                    },
+                },
+            }),
+            prisma.order.count({ where }),
+        ]);
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                orders,
+                pagination: { page: pageNum, limit: pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export {
     // Discounts
     listDiscounts,
@@ -596,5 +645,7 @@ export {
     rejectReturn,
     // Dashboard
     getDashboard,
+    // Orders
+    listOrders,
 };
 

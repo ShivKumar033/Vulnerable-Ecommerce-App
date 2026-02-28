@@ -27,7 +27,7 @@ const Products = () => {
   const fetchCategories = async () => {
     try {
       const response = await api.get('/categories')
-      setCategories(response.data || [])
+      setCategories(response.data.data?.categories || response.data.data || [])
     } catch (error) {
       console.error('Error fetching categories:', error)
     }
@@ -46,11 +46,12 @@ const Products = () => {
       if (sort) params.append('sort', sort)
 
       const response = await api.get(`/products?${params.toString()}`)
-      setProducts(response.data.products || response.data || [])
+      const productsData = response.data.data?.products || response.data.data || response.data.products || response.data
+      setProducts(productsData)
       
       // Try to get total pages if available
-      if (response.data.totalPages) {
-        setTotalPages(response.data.totalPages)
+      if (response.data.data?.pagination?.totalPages) {
+        setTotalPages(response.data.data.pagination.totalPages)
       }
     } catch (error) {
       console.error('Error fetching products:', error)
