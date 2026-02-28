@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const SupportSidebar = () => {
   const location = useLocation()
-  
+
   const menuItems = [
     { path: '/support/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
     { path: '/support/orders', label: 'Orders', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
@@ -21,9 +21,8 @@ const SupportSidebar = () => {
           <Link
             key={item.path}
             to={item.path}
-            className={`flex items-center px-6 py-3 text-gray-300 hover:bg-orange-800 hover:text-white ${
-              location.pathname === item.path ? 'bg-orange-800 text-white border-l-4 border-orange-400' : ''
-            }`}
+            className={`flex items-center px-6 py-3 text-gray-300 hover:bg-orange-800 hover:text-white ${location.pathname === item.path ? 'bg-orange-800 text-white border-l-4 border-orange-400' : ''
+              }`}
           >
             <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
@@ -54,7 +53,7 @@ const SupportLayout = () => {
           <div className="flex justify-between items-center px-6 py-4">
             <h1 className="text-xl font-semibold text-gray-800">Support Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {user?.name || user?.email}</span>
+              <span className="text-sm text-gray-600">Welcome, {user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email}</span>
               <Link to="/" className="text-sm text-primary-600 hover:text-primary-700">
                 Back to Store
               </Link>
@@ -67,7 +66,7 @@ const SupportLayout = () => {
             </div>
           </div>
         </header>
-        
+
         {/* Main Content */}
         <main className="p-6">
           <Outlet />

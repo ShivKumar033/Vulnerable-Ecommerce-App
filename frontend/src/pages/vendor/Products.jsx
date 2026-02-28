@@ -31,7 +31,8 @@ const VendorProducts = () => {
   const fetchProducts = async () => {
     try {
       const response = await api.get('/products')
-      setProducts(response.data || [])
+      const productsData = response.data?.data?.products || response.data?.products || response.data || []
+      setProducts(Array.isArray(productsData) ? productsData : [])
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
@@ -105,7 +106,7 @@ const VendorProducts = () => {
   const handleCsvUpload = async (e) => {
     e.preventDefault()
     if (!csvFile) return
-    
+
     setUploading(true)
     const formData = new FormData()
     formData.append('file', csvFile)
@@ -127,7 +128,7 @@ const VendorProducts = () => {
   const handleXmlUpload = async (e) => {
     e.preventDefault()
     if (!xmlFile) return
-    
+
     setUploading(true)
     const formData = new FormData()
     formData.append('file', xmlFile)

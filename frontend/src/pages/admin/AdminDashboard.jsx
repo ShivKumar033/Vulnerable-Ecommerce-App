@@ -51,7 +51,7 @@ const AdminDashboard = () => {
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-gray-600">Welcome back, {user?.name || user?.email}</p>
+        <p className="text-gray-600">Welcome back, {user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email}</p>
       </div>
 
       {/* Stats Grid */}

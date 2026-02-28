@@ -25,27 +25,52 @@ app.set('prisma', prisma);
 // Middleware Setup
 // ---------------------------------------------------------------------------
 
-// VULNERABLE: CORS misconfiguration – allows any origin with credentials.
-// This lets an attacker's website make authenticated requests on behalf of
-// a logged-in user when cookies are used for authentication.
-// Maps to: OWASP A05:2021 – Security Misconfiguration
-// PortSwigger – Cross-Origin Resource Sharing (CORS) misconfiguration
+// CORS configuration with proper headers for Referrer Policy and cross-origin requests
 app.use(cors({
-    origin: true,                 // reflects any origin
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        // In production, you should replace this with specific allowed origins
+        const allowedOrigins = [
+            'http://localhost:5000',
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'http://localhost:3001',
+            'http://127.0.0.1:5000',
+            'http://127.0.0.1:5173',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:3001'
+        ];
+        
+        // Allow requests with no origin (same-origin requests)
+        if (!origin) {
+            return callback(null, true);
+        }
+        
+        // Check if origin is in allowed list
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // For development, allow all origins (remove in production)
+        return callback(null, true);
+    },
     credentials: true,            // allows cookies / auth headers
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Length', 'Content-Type'],
 }));
 
-// VULNERABLE: Debug mode / excessive information disclosure.
-// Helmet is intentionally configured with many protections DISABLED so that
-// the app leaks security headers, allows clickjacking, etc.
-// Maps to: OWASP A05:2021 – Security Misconfiguration
-// PortSwigger – Clickjacking, Information Disclosure
+// Helmet configuration with security headers
+// Note: Some protections are intentionally disabled for this vulnerable demo app
 app.use(helmet({
     contentSecurityPolicy: false,   // no CSP
     frameguard: false,              // allows framing → clickjacking
     hsts: false,                    // no HSTS
     xDownloadOptions: false,
     xXssProtection: false,          // no X-XSS-Protection header
+    referrerPolicy: {               // Referrer Policy header
+        policy: 'strict-origin-when-cross-origin'
+    }
 }));
 
 // Request logging – intentionally verbose in all environments

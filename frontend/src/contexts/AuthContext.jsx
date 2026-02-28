@@ -29,8 +29,9 @@ export const AuthProvider = ({ children }) => {
         setUser(JSON.parse(savedUser))
         // Optionally verify token by fetching profile
         const response = await api.get('/users/profile')
-        setUser(response.data)
-        localStorage.setItem('user', JSON.stringify(response.data))
+        const profileUser = response.data?.data?.user || response.data
+        setUser(profileUser)
+        localStorage.setItem('user', JSON.stringify(profileUser))
       } catch (error) {
         // Token invalid, clear storage
         localStorage.removeItem('accessToken')
@@ -45,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password })
-      const { accessToken, refreshToken, user: userData } = response.data
+      const { accessToken, refreshToken, user: userData } = response.data.data
 
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)
@@ -64,7 +65,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await api.post('/auth/register', userData)
-      const { accessToken, refreshToken, user: newUser } = response.data
+      const { accessToken, refreshToken, user: newUser } = response.data.data
 
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)

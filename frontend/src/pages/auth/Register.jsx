@@ -23,7 +23,7 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match')
       return
@@ -32,11 +32,12 @@ const Register = () => {
     setLoading(true)
 
     const result = await register({
-      name: formData.name,
+      firstName: formData.name.split(' ')[0],
+      lastName: formData.name.split(' ').slice(1).join(' ') || undefined,
       email: formData.email,
       password: formData.password,
     })
-    
+
     setLoading(false)
 
     if (result.success) {
@@ -48,7 +49,7 @@ const Register = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
         <h2 className="text-3xl font-bold text-center mb-8">Create an Account</h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
