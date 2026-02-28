@@ -7,6 +7,7 @@ const Navbar = () => {
   const { user, logout, isAdmin, isVendor, isSupport } = useAuth()
   const navigate = useNavigate()
   const [cartCount, setCartCount] = useState(0)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   useEffect(() => {
     fetchCartCount()
@@ -62,43 +63,48 @@ const Navbar = () => {
                 </Link>
 
                 {/* User Menu */}
-                <div className="relative group">
-                  <button className="text-gray-700 hover:text-primary-600 flex items-center space-x-1">
+                <div className="relative">
+                  <button 
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="text-gray-700 hover:text-primary-600 flex items-center space-x-1"
+                  >
                     <span>{user.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
 
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50">
-                    <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Profile
-                    </Link>
-                    <Link to="/orders" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      My Orders
-                    </Link>
-                    <Link to="/addresses" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Addresses
-                    </Link>
-                    <Link to="/wishlist" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Wishlist
-                    </Link>
-                    <Link to="/wallet" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Wallet
-                    </Link>
-                    <Link to="/loyalty" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Loyalty Points
-                    </Link>
-                    <Link to="/giftcards" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Gift Cards
-                    </Link>
-                    <Link to="/returns" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Returns
-                    </Link>
-                    <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Logout
-                    </button>
-                  </div>
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
+                      <Link to="/profile" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Profile
+                      </Link>
+                      <Link to="/orders" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        My Orders
+                      </Link>
+                      <Link to="/addresses" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Addresses
+                      </Link>
+                      <Link to="/wishlist" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Wishlist
+                      </Link>
+                      <Link to="/wallet" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Wallet
+                      </Link>
+                      <Link to="/loyalty" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Loyalty Points
+                      </Link>
+                      <Link to="/giftcards" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Gift Cards
+                      </Link>
+                      <Link to="/returns" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Returns
+                      </Link>
+                      <button onClick={() => { setUserMenuOpen(false); handleLogout(); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        Logout
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Role-based Dashboard Links */}
@@ -165,11 +171,11 @@ const Footer = () => {
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Links</h4>
+            <h4 className="font-semibold mb-4">Dashboards</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/admin" className="hover:text-white">Admin Panel</Link></li>
-              <li><Link to="/vendor" className="hover:text-white">Vendor Panel</Link></li>
-              <li><Link to="/support" className="hover:text-white">Support Panel</Link></li>
+              <li><Link to="/admin/dashboard" className="hover:text-white">Admin Panel</Link></li>
+              <li><Link to="/vendor/dashboard" className="hover:text-white">Vendor Panel</Link></li>
+              <li><Link to="/support/dashboard" className="hover:text-white">Support Panel</Link></li>
             </ul>
           </div>
         </div>

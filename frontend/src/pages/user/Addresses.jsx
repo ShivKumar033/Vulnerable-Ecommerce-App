@@ -24,9 +24,12 @@ const Addresses = () => {
   const fetchAddresses = async () => {
     try {
       const response = await api.get('/users/addresses')
-      setAddresses(response.data || [])
+      // Handle different response formats
+      const addressesData = response.data?.data?.addresses || response.data?.addresses || response.data || []
+      setAddresses(Array.isArray(addressesData) ? addressesData : [])
     } catch (error) {
       console.error('Error fetching addresses:', error)
+      setAddresses([])
     } finally {
       setLoading(false)
     }

@@ -20,9 +20,15 @@ const Returns = () => {
   const fetchReturns = async () => {
     try {
       const response = await api.get('/returns')
-      setReturns(response.data || [])
+      // Handle different response formats - extract returnRequests from nested data
+      const returnsData = response.data?.data?.returnRequests || 
+                         response.data?.returnRequests || 
+                         response.data || 
+                         []
+      setReturns(Array.isArray(returnsData) ? returnsData : [])
     } catch (error) {
       console.error('Error fetching returns:', error)
+      setReturns([])
     } finally {
       setLoading(false)
     }

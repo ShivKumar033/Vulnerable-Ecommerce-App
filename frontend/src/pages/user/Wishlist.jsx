@@ -13,9 +13,16 @@ const Wishlist = () => {
   const fetchWishlist = async () => {
     try {
       const response = await api.get('/users/wishlist')
-      setWishlist(response.data || [])
+      // Handle different response formats - wishlist can be in various places
+      const wishlistData = response.data?.data?.wishlist?.items || 
+                          response.data?.data?.items || 
+                          response.data?.items || 
+                          response.data?.data?.wishlist ||
+                          []
+      setWishlist(Array.isArray(wishlistData) ? wishlistData : [])
     } catch (error) {
       console.error('Error fetching wishlist:', error)
+      setWishlist([])
     } finally {
       setLoading(false)
     }

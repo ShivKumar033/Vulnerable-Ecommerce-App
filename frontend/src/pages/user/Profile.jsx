@@ -1,23 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
+import { toast } from 'react-toastify'
 
 const Profile = () => {
   const { user, updateUser } = useAuth()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    bio: user?.bio || '',
+    firstName: '',
+    lastName: '',
+    displayName: '',
+    bio: '',
   })
   const [previewBio, setPreviewBio] = useState('')
 
   useEffect(() => {
-    setFormData({
-      name: user?.name || '',
-      email: user?.email || '',
-      bio: user?.bio || '',
-    })
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        displayName: user.displayName || '',
+        bio: user.bio || '',
+      })
+    }
   }, [user])
 
   const handleSubmit = async (e) => {
@@ -25,10 +30,12 @@ const Profile = () => {
     setLoading(true)
     try {
       const response = await api.put('/users/profile', formData)
-      updateUser(response.data)
-      alert('Profile updated!')
+      if (response.data.data?.user) {
+        updateUser(response.data.data.user)
+      }
+      toast.success('Profile updated successfully!')
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to update profile')
+      toast.error(error.response?.data?.message || 'Failed to update profile')
     } finally {
       setLoading(false)
     }
@@ -37,7 +44,7 @@ const Profile = () => {
   const handlePreviewBio = async () => {
     try {
       const response = await api.get('/users/profile/render')
-      setPreviewBio(response.data)
+      setPreviewBio(response.data.data?.bioRendered || '')
     } catch (error) {
       setPreviewBio(formData.bio)
     }
@@ -50,21 +57,31 @@ const Profile = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
             <input
               type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
               className="w-full px-3 py-2 border rounded-md"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
             <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              type="text"
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              className="w-full px-3 py-2 border rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+            <input
+              type="text"
+              value={formData.displayName}
+              onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
               className="w-full px-3 py-2 border rounded-md"
             />
           </div>

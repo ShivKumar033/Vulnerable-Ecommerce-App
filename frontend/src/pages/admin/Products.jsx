@@ -6,6 +6,18 @@ const AdminProducts = () => {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: '',
+    comparePrice: '',
+    stock: '',
+    sku: '',
+    categoryId: '',
+    isActive: true,
+  })
 
   useEffect(() => {
     fetchProducts()
@@ -44,8 +56,34 @@ const AdminProducts = () => {
     }
   }
 
+  const handleCreateProduct = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await api.post('/products', formData)
+      alert('Product created successfully!')
+      setShowForm(false)
+      setFormData({
+        title: '',
+        description: '',
+        price: '',
+        comparePrice: '',
+        stock: '',
+        sku: '',
+        categoryId: '',
+        isActive: true,
+      })
+      fetchProducts()
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to create product')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = !search || 
+      product.title?.toLowerCase().includes(search.toLowerCase()) ||
       product.name?.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = !categoryFilter || product.categoryId?.toString() === categoryFilter
     return matchesSearch && matchesCategory
@@ -61,7 +99,104 @@ const AdminProducts = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-8">Product Moderation</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Product Moderation</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
+        >
+          {showForm ? 'Cancel' : 'Add Product'}
+        </button>
+      </div>
+
+      {/* Add Product Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4">Add New Product</h2>
+          <form onSubmit={handleCreateProduct} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Price *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Compare Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.comparePrice}
+                  onChange={(e) => setFormData({ ...formData, comparePrice: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Stock</label>
+                <input
+                  type="number"
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">SKU</label>
+                <input
+                  type="text"
+                  value={formData.sku}
+                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="mr-2"
+                />
+                Active (visible on store)
+              </label>
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
+            >
+              {submitting ? 'Creating...' : 'Create Product'}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
@@ -90,49 +225,57 @@ const AdminProducts = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredProducts.map((product) => (
-              <tr key={product.id}>
-                <td className="px-6 py-4">
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-gray-200 rounded flex-shrink-0">
-                      {product.images?.[0] && (
-                        <img src={product.images[0]} alt="" className="w-full h-full object-cover rounded" />
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-gray-500 text-sm">{product.description?.substring(0, 40)}...</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">${product.price}</td>
-                <td className="px-6 py-4">{product.stock || 0}</td>
-                <td className="px-6 py-4">{product.vendor?.name || 'N/A'}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    product.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {product.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleToggleActive(product.id, product.isActive)}
-                      className="text-primary-600 hover:text-primary-700"
-                    >
-                      {product.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Delete
-                    </button>
-                  </div>
+            {filteredProducts.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  No products found. {products.length === 0 && "Click 'Add Product' to create one."}
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredProducts.map((product) => (
+                <tr key={product.id}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-gray-200 rounded flex-shrink-0">
+                        {product.images?.[0] && (
+                          <img src={product.images[0].url || product.images[0]} alt="" className="w-full h-full object-cover rounded" />
+                        )}
+                      </div>
+                      <div className="ml-4">
+                        <div className="font-medium">{product.title || product.name}</div>
+                        <div className="text-gray-500 text-sm">{(product.description || '').substring(0, 40)}...</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">${product.price}</td>
+                  <td className="px-6 py-4">{product.stock || 0}</td>
+                  <td className="px-6 py-4">{product.vendor?.firstName ? `${product.vendor.firstName} ${product.vendor.lastName}` : 'N/A'}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      product.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {product.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleToggleActive(product.id, product.isActive)}
+                        className="text-primary-600 hover:text-primary-700"
+                      >
+                        {product.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

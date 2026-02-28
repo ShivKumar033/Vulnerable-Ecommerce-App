@@ -1,25 +1,15 @@
+
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
-const { Pool } = pg;
 import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
 
-dotenv.config();
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
     console.log('🌱 Starting database seed...');
 
-    // 1. Create Users
     const passwordHash = await bcrypt.hash('password123', 10);
 
+    // 1. Create Admin User
     const admin = await prisma.user.upsert({
         where: { email: 'admin@example.com' },
         update: {},
@@ -32,7 +22,9 @@ async function main() {
             isEmailVerified: true,
         },
     });
+    console.log('✅ Admin user created:', admin.email);
 
+    // 2. Create Vendor User
     const vendor = await prisma.user.upsert({
         where: { email: 'vendor@example.com' },
         update: {},
@@ -45,20 +37,9 @@ async function main() {
             isEmailVerified: true,
         },
     });
+    console.log('✅ Vendor user created:', vendor.email);
 
-    const user = await prisma.user.upsert({
-        where: { email: 'user@example.com' },
-        update: {},
-        create: {
-            email: 'user@example.com',
-            password: passwordHash,
-            role: 'USER',
-            firstName: 'Jane',
-            lastName: 'Doe',
-            isEmailVerified: true,
-        },
-    });
-
+    // 3. Create Support User
     const support = await prisma.user.upsert({
         where: { email: 'support@example.com' },
         update: {},
@@ -71,10 +52,24 @@ async function main() {
             isEmailVerified: true,
         },
     });
+    console.log('✅ Support user created:', support.email);
 
-    console.log('✅ Users seeded: Admin, Vendor, User, Support');
+    // 4. Create Regular User
+    const user = await prisma.user.upsert({
+        where: { email: 'user@example.com' },
+        update: {},
+        create: {
+            email: 'user@example.com',
+            password: passwordHash,
+            role: 'USER',
+            firstName: 'Jane',
+            lastName: 'Doe',
+            isEmailVerified: true,
+        },
+    });
+    console.log('✅ User created:', user.email);
 
-    // 2. Create Categories
+    // 5. Create Categories
     const electronics = await prisma.category.upsert({
         where: { slug: 'electronics' },
         update: {},
@@ -92,33 +87,25 @@ async function main() {
             slug: 'clothing',
         },
     });
+    console.log('✅ Categories created');
 
-    console.log('✅ Categories seeded');
-
-    // 3. Create Products (linked to Vendor)
-    // Check if products exist first to avoid duplicates or use upsert if needed (slug is unique)
-
+    // 6. Create Products
     const laptop = await prisma.product.upsert({
         where: { slug: 'pro-laptop-x1' },
-        update: {}, // no-op if exists
+        update: {},
         create: {
             title: 'Pro Laptop X1',
             slug: 'pro-laptop-x1',
-            description: 'High-performance laptop for professionals.',
+            description: 'High-performance laptop for professionals with 16GB RAM, 512GB SSD.',
             price: 1999.99,
             stock: 50,
             sku: 'LAP-X1-001',
             vendorId: vendor.id,
             categoryId: electronics.id,
             isActive: true,
-            images: {
-                create: [
-                    { url: 'https://placehold.co/600x400?text=Laptop+Front', isPrimary: true },
-                    { url: 'https://placehold.co/600x400?text=Laptop+Side', isPrimary: false },
-                ]
-            }
         },
     });
+    console.log('✅ Product created:', laptop.title);
 
     const tshirt = await prisma.product.upsert({
         where: { slug: 'classic-white-tee' },
@@ -126,38 +113,48 @@ async function main() {
         create: {
             title: 'Classic White Tee',
             slug: 'classic-white-tee',
-            description: 'Comfortable cotton t-shirt.',
+            description: 'Comfortable cotton t-shirt, perfect for everyday wear.',
             price: 29.99,
             stock: 100,
             sku: 'TEE-WHT-001',
             vendorId: vendor.id,
             categoryId: clothing.id,
             isActive: true,
-            variants: {
-                create: [
-                    { name: 'Size', value: 'S', stock: 20 },
-                    { name: 'Size', value: 'M', stock: 50 },
-                    { name: 'Size', value: 'L', stock: 30 },
-                ]
-            },
-            images: {
-                create: [
-                    { url: 'https://placehold.co/600x400?text=T-Shirt', isPrimary: true },
-                ]
-            }
         },
     });
+    console.log('✅ Product created:', tshirt.title);
 
-    console.log('✅ Products seeded');
-    console.log('🌱 Seeding complete.');
+    const phone = await prisma.product.upsert({
+        where: { slug: 'smartphone-pro' },
+        update: {},
+        create: {
+            title: 'Smartphone Pro',
+            slug: 'smartphone-pro',
+            description: 'Latest smartphone with amazing camera and battery life.',
+            price: 899.99,
+            stock: 75,
+            sku: 'PHN-PRO-001',
+            vendorId: vendor.id,
+            categoryId: electronics.id,
+            isActive: true,
+        },
+    });
+    console.log('✅ Product created:', phone.title);
+
+    console.log('\n🌱 Seeding complete!');
+    console.log('\n📋 Login Credentials:');
+    console.log('   Admin:    admin@example.com    / password123');
+    console.log('   Vendor:   vendor@example.com   / password123');
+    console.log('   Support:  support@example.com  / password123');
+    console.log('   User:     user@example.com     / password123');
 }
 
 main()
     .catch((e) => {
-        console.error(e);
+        console.error('❌ Error:', e);
         process.exit(1);
     })
     .finally(async () => {
         await prisma.$disconnect();
-        await pool.end();
     });
+

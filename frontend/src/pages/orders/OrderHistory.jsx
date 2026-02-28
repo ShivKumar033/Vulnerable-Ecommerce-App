@@ -15,9 +15,12 @@ const OrderHistory = () => {
   const fetchOrders = async () => {
     try {
       const response = await api.get('/orders')
-      setOrders(response.data || [])
+      // Handle different response formats
+      const ordersData = response.data?.data?.orders || response.data?.orders || response.data || []
+      setOrders(Array.isArray(ordersData) ? ordersData : [])
     } catch (error) {
       console.error('Error fetching orders:', error)
+      setOrders([])
     } finally {
       setLoading(false)
     }

@@ -16,10 +16,17 @@ const LoyaltyPoints = () => {
         api.get('/loyalty/balance'),
         api.get('/loyalty/history'),
       ])
-      setBalance(balanceRes.data?.balance || 0)
-      setHistory(historyRes.data || [])
+      // Handle different response formats
+      const balanceData = balanceRes.data?.data?.balance || balanceRes.data?.balance || 0
+      const historyData = historyRes.data?.data?.history || 
+                         historyRes.data?.history || 
+                         historyRes.data || 
+                         []
+      setBalance(balanceData)
+      setHistory(Array.isArray(historyData) ? historyData : [])
     } catch (error) {
       console.error('Error fetching loyalty data:', error)
+      setHistory([])
     } finally {
       setLoading(false)
     }
