@@ -8,15 +8,19 @@ Backend returns `{ status: 'success', data: { users/orders/coupons/etc: [...] } 
 
 ## Files Fixed
 
-- [x] AdminUsers.jsx
-- [x] AdminOrders.jsx
-- [x] AdminCoupons.jsx
-- [x] Vendors.jsx
-- [x] Inventory.jsx
-- [x] FeatureFlags.jsx
-- [x] Webhooks.jsx
-- [x] Logs.jsx
-- [x] AdminDashboard.jsx
+- [x] AdminUsers.jsx - Fixed data path and user name display
+- [x] AdminOrders.jsx - Fixed data path
+- [x] AdminCoupons.jsx - Fixed data path
+- [x] Vendors.jsx - Fixed data path
+- [x] Inventory.jsx - Fixed data path
+- [x] FeatureFlags.jsx - Fixed data path
+- [x] Webhooks.jsx - Fixed data path (webhookConfigs)
+- [x] Logs.jsx - Fixed data path (auditLogs), changed endpoint from /admin/logs to /admin/audit-logs, mapped field names
+- [x] AdminDashboard.jsx - Fixed to use /admin/analytics endpoint, fixed recent orders display
+
+## Additional Fixes
+- [x] Backend: Added lastLoginIP to user list from audit logs
+- [x] Backend: Fixed users returning last login IP address
 
 ## Build Status
 ✅ Build successful

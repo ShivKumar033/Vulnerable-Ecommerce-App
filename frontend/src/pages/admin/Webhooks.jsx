@@ -20,7 +20,7 @@ const AdminWebhooks = () => {
   const fetchWebhooks = async () => {
     try {
       const response = await api.get('/webhooks/configs')
-      setWebhooks(response.data?.data?.webhooks || response.data?.webhooks || response.data || [])
+      setWebhooks(response.data?.data?.webhookConfigs || response.data?.webhookConfigs || response.data || [])
     } catch (error) {
       console.error('Error fetching webhooks:', error)
     } finally {

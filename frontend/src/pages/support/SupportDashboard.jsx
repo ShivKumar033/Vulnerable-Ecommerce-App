@@ -18,8 +18,10 @@ const SupportDashboard = () => {
         api.get('/support/orders'),
         api.get('/support/users'),
       ])
-      setOrders(ordersRes.data || [])
-      setUsers(usersRes.data || [])
+      const ordersData = ordersRes.data?.data?.orders || ordersRes.data?.orders || ordersRes.data || []
+      const usersData = usersRes.data?.data?.users || usersRes.data?.users || usersRes.data || []
+      setOrders(Array.isArray(ordersData) ? ordersData : [])
+      setUsers(Array.isArray(usersData) ? usersData : [])
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -48,15 +50,18 @@ const SupportDashboard = () => {
     }
   }
 
-  const filteredOrders = orders.filter(order => 
+  const filteredOrders = (Array.isArray(orders) ? orders : []).filter(order => 
     !searchQuery || 
     order.id.toString().includes(searchQuery) ||
-    order.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    order.user?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.user?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const filteredUsers = users.filter(user =>
+  const filteredUsers = (Array.isArray(users) ? users : []).filter(user =>
     !searchQuery ||
-    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -124,8 +129,8 @@ const SupportDashboard = () => {
                 {filteredOrders.map((order) => (
                   <tr key={order.id}>
                     <td className="px-6 py-4">#{order.id}</td>
-                    <td className="px-6 py-4">{order.user?.name || 'N/A'}</td>
-                    <td className="px-6 py-4">${order.total?.toFixed(2)}</td>
+                    <td className="px-6 py-4">{order.user?.firstName ? `${order.user.firstName} ${order.user.lastName || ''}` : order.user?.email || 'N/A'}</td>
+                    <td className="px-6 py-4">${Number(order.totalAmount || order.total || 0).toFixed(2)}</td>
                     <td className="px-6 py-4">{order.status}</td>
                     <td className="px-6 py-4">
                       <button

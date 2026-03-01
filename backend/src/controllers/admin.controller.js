@@ -58,10 +58,33 @@ async function listUsers(req, res, next) {
             prisma.user.count({ where }),
         ]);
 
+        // Get last login IP from audit logs for each user
+        const userIds = users.map(u => u.id);
+        const lastLoginLogs = await prisma.auditLog.findMany({
+            where: {
+                userId: { in: userIds },
+                ipAddress: { not: null },
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { userId: true, ipAddress: true },
+            distinct: ['userId'],
+        });
+
+        const lastLoginMap = {};
+        lastLoginLogs.forEach(log => {
+            lastLoginMap[log.userId] = log.ipAddress;
+        });
+
+        // Add lastLoginIP to each user
+        const usersWithIp = users.map(user => ({
+            ...user,
+            lastLoginIP: lastLoginMap[user.id] || null,
+        }));
+
         return res.status(200).json({
             status: 'success',
             data: {
-                users,
+                users: usersWithIp,
                 pagination: { page: pageNum, limit: pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
             },
         });

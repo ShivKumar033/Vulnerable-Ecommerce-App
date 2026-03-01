@@ -22,17 +22,17 @@ const AdminDashboard = () => {
 
   const fetchDashboard = async () => {
     try {
-      const response = await api.get('/admin/dashboard')
-      const data = response.data?.data || response.data || {}
+      const response = await api.get('/admin/analytics')
+      const analytics = response.data?.data?.analytics || {}
       setStats({
-        totalUsers: data.totalUsers || 0,
-        totalOrders: data.totalOrders || 0,
-        totalRevenue: data.totalRevenue || 0,
-        totalProducts: data.totalProducts || 0,
-        pendingOrders: data.pendingOrders || 0,
-        pendingReturns: data.pendingReturns || 0
+        totalUsers: analytics.totalUsers || 0,
+        totalOrders: analytics.totalOrders || 0,
+        totalRevenue: analytics.totalRevenue || 0,
+        totalProducts: analytics.totalProducts || 0,
+        pendingOrders: 0,
+        pendingReturns: 0
       })
-      setRecentOrders(data.recentOrders?.slice(0, 5) || [])
+      setRecentOrders(analytics.recentOrders?.slice(0, 5) || [])
     } catch (error) {
       console.error('Error fetching dashboard:', error)
     } finally {
@@ -131,8 +131,8 @@ const AdminDashboard = () => {
                 {recentOrders.map((order) => (
                   <tr key={order.id} className="border-t">
                     <td className="px-4 py-3">#{order.id}</td>
-                    <td className="px-4 py-3">{order.user?.name || 'N/A'}</td>
-                    <td className="px-4 py-3">${order.total?.toFixed(2)}</td>
+                    <td className="px-4 py-3">{order.user?.firstName ? `${order.user.firstName} ${order.user.lastName || ''}` : order.user?.email || 'N/A'}</td>
+                    <td className="px-4 py-3">${order.totalAmount?.toFixed(2) || order.total?.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
                         {order.status}

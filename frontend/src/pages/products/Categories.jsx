@@ -100,7 +100,7 @@ const Categories = () => {
                     {product.images?.[0] ? (
                       <img
                         src={product.images[0]}
-                        alt={product.name}
+                        alt={product.title || product.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -110,9 +110,9 @@ const Categories = () => {
                     )}
                   </div>
                   <div className="p-4">
-                    <h3 className="font-semibold mb-1 truncate">{product.name}</h3>
+                    <h3 className="font-semibold mb-1 truncate">{product.title || product.name}</h3>
                     <div className="flex items-center justify-between">
-                      <span className="text-primary-600 font-bold">${product.price?.toFixed(2)}</span>
+                      <span className="text-primary-600 font-bold">${typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}</span>
                       <span className="text-sm text-gray-500">{product.stock} in stock</span>
                     </div>
                   </div>

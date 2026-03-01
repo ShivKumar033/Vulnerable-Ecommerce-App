@@ -115,7 +115,7 @@ const AdminUsers = () => {
             {filteredUsers.map((user) => (
               <tr key={user.id}>
                 <td className="px-6 py-4 whitespace-nowrap">{user.id}</td>
-                <td className="px-6 py-4">{user.name || 'N/A'}</td>
+                <td className="px-6 py-4">{user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'N/A'}</td>
                 <td className="px-6 py-4">{user.email}</td>
                 <td className="px-6 py-4">
                   <select

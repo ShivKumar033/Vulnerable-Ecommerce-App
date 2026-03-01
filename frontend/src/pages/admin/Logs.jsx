@@ -12,8 +12,16 @@ const AdminLogs = () => {
 
   const fetchLogs = async () => {
     try {
-      const response = await api.get('/admin/logs')
-      setLogs(response.data?.data?.auditLogs || response.data?.auditLogs || response.data || [])
+      const response = await api.get('/admin/audit-logs')
+      const rawLogs = response.data?.data?.auditLogs || response.data?.auditLogs || response.data || []
+      // Map backend field names to frontend expected names
+      const mappedLogs = rawLogs.map(log => ({
+        ...log,
+        timestamp: log.createdAt,
+        ip: log.ipAddress,
+        details: log.metadata ? JSON.stringify(log.metadata) : '-'
+      }))
+      setLogs(mappedLogs)
     } catch (error) {
       console.error('Error fetching logs:', error)
     } finally {
