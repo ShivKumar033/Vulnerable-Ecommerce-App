@@ -23,7 +23,7 @@ const AdminCoupons = () => {
   const fetchCoupons = async () => {
     try {
       const response = await api.get('/admin/coupons')
-      setCoupons(response.data || [])
+      setCoupons(response.data?.data?.coupons || response.data?.coupons || response.data || [])
     } catch (error) {
       console.error('Error fetching coupons:', error)
     } finally {

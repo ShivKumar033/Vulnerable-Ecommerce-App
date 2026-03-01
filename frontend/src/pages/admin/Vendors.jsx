@@ -19,7 +19,7 @@ const AdminVendors = () => {
   const fetchVendors = async () => {
     try {
       const response = await api.get('/admin/vendors')
-      setVendors(response.data || [])
+      setVendors(response.data?.data?.vendors || response.data?.vendors || response.data || [])
     } catch (error) {
       console.error('Error fetching vendors:', error)
     } finally {

@@ -13,7 +13,7 @@ const AdminLogs = () => {
   const fetchLogs = async () => {
     try {
       const response = await api.get('/admin/logs')
-      setLogs(response.data || [])
+      setLogs(response.data?.data?.auditLogs || response.data?.auditLogs || response.data || [])
     } catch (error) {
       console.error('Error fetching logs:', error)
     } finally {

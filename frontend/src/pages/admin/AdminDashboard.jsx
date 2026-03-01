@@ -23,15 +23,16 @@ const AdminDashboard = () => {
   const fetchDashboard = async () => {
     try {
       const response = await api.get('/admin/dashboard')
-      setStats(response.data || {
-        totalUsers: 0,
-        totalOrders: 0,
-        totalRevenue: 0,
-        totalProducts: 0,
-        pendingOrders: 0,
-        pendingReturns: 0
+      const data = response.data?.data || response.data || {}
+      setStats({
+        totalUsers: data.totalUsers || 0,
+        totalOrders: data.totalOrders || 0,
+        totalRevenue: data.totalRevenue || 0,
+        totalProducts: data.totalProducts || 0,
+        pendingOrders: data.pendingOrders || 0,
+        pendingReturns: data.pendingReturns || 0
       })
-      setRecentOrders(response.data?.recentOrders?.slice(0, 5) || [])
+      setRecentOrders(data.recentOrders?.slice(0, 5) || [])
     } catch (error) {
       console.error('Error fetching dashboard:', error)
     } finally {

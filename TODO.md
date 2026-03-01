@@ -1,21 +1,23 @@
-# Fix Plan for "TypeError: X.map is not a function" Errors
+# Fix Admin Dashboard TypeError Issues
 
-## Issues Identified:
+## Task
+Fix TypeError issues in admin/dashboard/ endpoints where `.filter()` and `.map()` are called on non-array values.
 
-1. **Returns.jsx** - Not extracting returnRequests properly from API response
-2. **Frontend defensive checks** - Need to ensure all pages properly handle empty/null data
-3. **Add Product functionality** - Missing in admin Products page
+## Root Cause
+Backend returns `{ status: 'success', data: { users/orders/coupons/etc: [...] } }` but frontend accesses `response.data` directly (expecting array).
 
-## Tasks:
+## Files Fixed
 
-### Task 1: Fix Returns.jsx data extraction
-- [x] Fix fetchReturns function to properly extract returnRequests from response.data.data
+- [x] AdminUsers.jsx
+- [x] AdminOrders.jsx
+- [x] AdminCoupons.jsx
+- [x] Vendors.jsx
+- [x] Inventory.jsx
+- [x] FeatureFlags.jsx
+- [x] Webhooks.jsx
+- [x] Logs.jsx
+- [x] AdminDashboard.jsx
 
-### Task 2: Add "Add Product" functionality to Admin Products page
-- [x] Add product creation form/modal
-- [x] Add handleCreateProduct function
-- [x] Include proper form fields (title, price, description, stock, sku, etc.)
-
-### Task 3: Verify fixes work correctly
-- [x] Test all endpoints return proper empty arrays
+## Build Status
+✅ Build successful
 

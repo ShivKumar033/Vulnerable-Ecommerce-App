@@ -14,7 +14,7 @@ const AdminInventory = () => {
   const fetchInventory = async () => {
     try {
       const response = await api.get('/admin/inventory')
-      setInventory(response.data || [])
+      setInventory(response.data?.data?.inventory || response.data?.inventory || response.data || [])
     } catch (error) {
       console.error('Error fetching inventory:', error)
     } finally {

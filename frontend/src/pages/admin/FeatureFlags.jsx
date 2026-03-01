@@ -15,7 +15,7 @@ const AdminFeatureFlags = () => {
   const fetchFlags = async () => {
     try {
       const response = await api.get('/admin/feature-flags')
-      setFlags(response.data || [])
+      setFlags(response.data?.data?.featureFlags || response.data?.featureFlags || response.data || [])
     } catch (error) {
       console.error('Error fetching flags:', error)
     } finally {

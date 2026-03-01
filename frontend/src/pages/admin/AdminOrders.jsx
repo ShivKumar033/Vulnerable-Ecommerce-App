@@ -14,7 +14,7 @@ const AdminOrders = () => {
   const fetchOrders = async () => {
     try {
       const response = await api.get('/orders/admin/all')
-      setOrders(response.data || [])
+      setOrders(response.data?.data?.orders || response.data?.orders || response.data || [])
     } catch (error) {
       console.error('Error fetching orders:', error)
     } finally {
