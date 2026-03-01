@@ -210,7 +210,7 @@ const VendorProducts = () => {
                   {product.description?.substring(0, 100)}...
                 </p>
                 <div className="flex justify-between items-center">
-                  <span className="text-primary-600 font-bold">${product.price}</span>
+                  <span className="text-primary-600 font-bold">${typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}</span>
                   <span className="text-sm text-gray-500">Stock: {product.stock}</span>
                 </div>
                 <div className="flex justify-between mt-4">

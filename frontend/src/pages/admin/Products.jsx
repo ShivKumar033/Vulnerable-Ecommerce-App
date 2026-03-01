@@ -247,7 +247,7 @@ const AdminProducts = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">${product.price}</td>
+                  <td className="px-6 py-4">${typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}</td>
                   <td className="px-6 py-4">{product.stock || 0}</td>
                   <td className="px-6 py-4">{product.vendor?.firstName ? `${product.vendor.firstName} ${product.vendor.lastName}` : 'N/A'}</td>
                   <td className="px-6 py-4">

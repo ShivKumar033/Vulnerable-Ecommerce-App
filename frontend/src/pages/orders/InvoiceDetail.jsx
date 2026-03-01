@@ -157,8 +157,8 @@ const InvoiceDetail = () => {
                     {item.variant && <p className="text-sm text-gray-500">{item.variant}</p>}
                   </td>
                   <td className="text-center py-3">{item.quantity}</td>
-                  <td className="text-right py-3">${item.price?.toFixed(2)}</td>
-                  <td className="text-right py-3">${(item.price * item.quantity).toFixed(2)}</td>
+                  <td className="text-right py-3">${Number(item.price || 0).toFixed(2)}</td>
+                  <td className="text-right py-3">${(Number(item.price || 0) * item.quantity).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

@@ -28,7 +28,7 @@ const Home = () => {
       // Handle categories response safely
       if (results[1].status === 'fulfilled') {
         const categoriesRes = results[1].value
-        const categoriesData = categoriesRes.data?.data || categoriesRes.data || []
+        const categoriesData = categoriesRes.data?.data?.categories || categoriesRes.data?.data || categoriesRes.data || []
         setCategories(Array.isArray(categoriesData) ? categoriesData : [])
       }
     } catch (error) {
@@ -131,7 +131,7 @@ const Home = () => {
                   <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
                   <p className="text-gray-600 text-sm mb-2">{product.description?.substring(0, 60)}...</p>
                   <div className="flex justify-between items-center">
-                    <span className="text-primary-600 font-bold">${product.price}</span>
+                    <span className="text-primary-600 font-bold">${typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}</span>
                     <span className="text-yellow-500">★ {product.rating || '0.0'}</span>
                   </div>
                 </div>

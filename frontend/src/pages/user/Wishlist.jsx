@@ -76,7 +76,7 @@ const Wishlist = () => {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-lg mb-2">{item.product?.name}</h3>
-                  <p className="text-primary-600 font-bold">${item.product?.price}</p>
+                  <p className="text-primary-600 font-bold">${typeof item.product?.price === 'number' ? item.product.price.toFixed(2) : Number(item.product?.price || 0).toFixed(2)}</p>
                 </div>
               </Link>
               <div className="px-4 pb-4">

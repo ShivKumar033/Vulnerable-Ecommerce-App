@@ -139,7 +139,7 @@ const VendorProducts = () => {
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">${product.price}</td>
+                <td className="px-6 py-4 whitespace-nowrap">${typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{product.stock}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 

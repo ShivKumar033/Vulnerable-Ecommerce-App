@@ -146,7 +146,7 @@ const OrderDetail = () => {
                   <p className="text-gray-500">Qty: {item.quantity}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                  <p className="font-semibold">${(Number(item.price) * item.quantity).toFixed(2)}</p>
                 </div>
               </div>
             ))}

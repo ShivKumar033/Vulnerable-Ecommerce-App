@@ -38,7 +38,8 @@ const ProductDetail = () => {
   const fetchReviews = async () => {
     try {
       const response = await api.get(`/reviews/product/${id}`)
-      setReviews(response.data || [])
+      const reviewsData = response.data?.data?.reviews || response.data?.reviews || response.data || []
+      setReviews(Array.isArray(reviewsData) ? reviewsData : [])
     } catch (error) {
       console.error('Error fetching reviews:', error)
     }
@@ -149,7 +150,7 @@ const ProductDetail = () => {
             <span className="text-yellow-500 text-lg">★ {product.rating || '0.0'}</span>
             <span className="text-gray-500 ml-2">({reviews.length} reviews)</span>
           </div>
-          <p className="text-3xl font-bold text-primary-600 mb-4">${product.price}</p>
+          <p className="text-3xl font-bold text-primary-600 mb-4">${typeof product.price === 'number' ? product.price.toFixed(2) : Number(product.price || 0).toFixed(2)}</p>
           <p className="text-gray-600 mb-6">{product.description}</p>
 
           {/* Variants */}

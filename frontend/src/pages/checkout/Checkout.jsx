@@ -105,7 +105,7 @@ const Checkout = () => {
 
   const calculateSubtotal = () => {
     const items = cart?.items || []
-    return items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    return items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0)
   }
 
   const calculateTax = () => calculateSubtotal() * 0.1
@@ -320,7 +320,7 @@ const Checkout = () => {
             {cart?.items?.map((item) => (
               <div key={item.id} className="flex justify-between py-2 border-b">
                 <span>{item.product?.name} x {item.quantity}</span>
-                <span>${(item.price * item.quantity).toFixed(2)}</span>
+                <span>${(Number(item.price || 0) * item.quantity).toFixed(2)}</span>
               </div>
             ))}
           </div>

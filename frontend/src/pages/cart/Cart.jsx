@@ -150,7 +150,7 @@ const Cart = () => {
                       {item.variant && (
                         <p className="text-sm text-gray-500">{item.variant}</p>
                       )}
-                      <p className="text-primary-600 font-bold">${item.price}</p>
+                      <p className="text-primary-600 font-bold">${typeof item.price === 'number' ? item.price.toFixed(2) : Number(item.price || 0).toFixed(2)}</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button

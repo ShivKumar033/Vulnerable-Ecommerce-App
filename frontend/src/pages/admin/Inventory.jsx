@@ -109,7 +109,7 @@ const AdminInventory = () => {
                     min="0"
                   />
                 </td>
-                <td className="px-6 py-4">${item.price}</td>
+                <td className="px-6 py-4">${typeof item.price === 'number' ? item.price.toFixed(2) : Number(item.price || 0).toFixed(2)}</td>
                 <td className="px-6 py-4">
                   {(item.stock || 0) === 0 ? (
                     <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Out of Stock</span>
