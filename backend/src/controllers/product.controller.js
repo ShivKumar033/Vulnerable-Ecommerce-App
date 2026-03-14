@@ -52,25 +52,83 @@ async function listProducts(req, res, next) {
             if (maxPrice) where.price.lte = parseFloat(maxPrice);
         }
 
-        // If keyword search is used, we intentionally use raw SQL for vulnerability
+        // Handle rating filter - requires joining with reviews and computing average
+        let ratingCondition = '';
+        if (rating) {
+            const minRating = parseFloat(rating);
+            ratingCondition = `AND (
+                SELECT AVG(r.rating)::float
+                FROM "Review" r
+                WHERE r."productId" = p.id
+            ) >= ${minRating}`;
+        }
+
+        // If keyword search is used, we use raw SQL but include ALL other filters
         if (keyword) {
             // VULNERABLE: SQL Injection — unsanitized user input interpolated into SQL
             // Maps to: OWASP A03:2021 – Injection
             // PortSwigger – SQL Injection
+            
+            // Build additional filter conditions
+            let additionalConditions = '';
+            
+            // Category filter in raw SQL
+            if (category) {
+                additionalConditions += ` AND p."categoryId" = '${category}'`;
+            }
+            
+            // Price range filter in raw SQL
+            if (minPrice || maxPrice) {
+                if (minPrice) additionalConditions += ` AND p.price >= ${parseFloat(minPrice)}`;
+                if (maxPrice) additionalConditions += ` AND p.price <= ${parseFloat(maxPrice)}`;
+            }
+            
+            // Vendor filter in raw SQL
+            if (vendorId) {
+                additionalConditions += ` AND p."vendorId" = '${vendorId}'`;
+            }
+
+            // Rating filter in raw SQL (uses subquery)
+            if (rating) {
+                additionalConditions += ` AND (
+                    SELECT AVG(r.rating)::float
+                    FROM "Review" r
+                    WHERE r."productId" = p.id
+                ) >= ${parseFloat(rating)}`;
+            }
+
+            // Sanitize sortBy and order to prevent SQL injection
+            const allowedSortFields = ['createdAt', 'price', 'title', 'rating'];
+            const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+            const safeOrder = order === 'asc' ? 'ASC' : 'DESC';
+
+            // Build the order by clause - for rating we need a subquery
+            let orderByClause = `ORDER BY p."${safeSortBy}" ${safeOrder}`;
+            if (safeSortBy === 'rating') {
+                orderByClause = `ORDER BY (
+                    SELECT AVG(r.rating)::float
+                    FROM "Review" r
+                    WHERE r."productId" = p.id
+                ) ${safeOrder}`;
+            }
+
             try {
                 const rawResults = await prisma.$queryRawUnsafe(
-                    `SELECT id, title, slug, description, price, stock, "vendorId", "categoryId", "isActive", "createdAt"
-                     FROM products
-                     WHERE "isActive" = true
-                       AND (title ILIKE '%${keyword}%' OR description ILIKE '%${keyword}%')
-                     ORDER BY "${sortBy}" ${order}
+                    `SELECT p.id, p.title, p.slug, p.description, p.price, p.stock, p."vendorId", p."categoryId", p."isActive", p."createdAt",
+                            (SELECT AVG(r.rating)::float FROM "Review" r WHERE r."productId" = p.id) as "averageRating"
+                     FROM "Product" p
+                     WHERE p."isActive" = true
+                       AND (p.title ILIKE '%${keyword}%' OR p.description ILIKE '%${keyword}%')
+                       ${additionalConditions}
+                     ${orderByClause}
                      LIMIT ${pageSize} OFFSET ${skip}`
                 );
 
                 const countResult = await prisma.$queryRawUnsafe(
-                    `SELECT COUNT(*) as count FROM products
-                     WHERE "isActive" = true
-                       AND (title ILIKE '%${keyword}%' OR description ILIKE '%${keyword}%')`
+                    `SELECT COUNT(*) as count FROM "Product" p
+                     WHERE p."isActive" = true
+                       AND (p.title ILIKE '%${keyword}%' OR p.description ILIKE '%${keyword}%')
+                       ${additionalConditions}`
                 );
 
                 const totalCount = parseInt(countResult[0]?.count || '0', 10);
@@ -99,8 +157,53 @@ async function listProducts(req, res, next) {
             }
         }
 
-        // Standard Prisma query (no keyword)
+        // Standard Prisma query (no keyword) - includes rating filter via raw query
         const orderBy = {};
+        
+        // Handle rating sort - needs special handling
+        if (sortBy === 'rating') {
+            // For rating sort, we need to use raw SQL since Prisma doesn't support computed field sorting easily
+            const safeOrder = order === 'asc' ? 'ASC' : 'DESC';
+            const rawResults = await prisma.$queryRawUnsafe(
+                `SELECT p.id, p.title, p.slug, p.description, p.price, p.stock, p."vendorId", p."categoryId", p."isActive", p."createdAt",
+                        (SELECT AVG(r.rating)::float FROM "Review" r WHERE r."productId" = p.id) as "averageRating"
+                 FROM "Product" p
+                 WHERE p."isActive" = true
+                   ${category ? `AND p."categoryId" = '${category}'` : ''}
+                   ${minPrice ? `AND p.price >= ${parseFloat(minPrice)}` : ''}
+                   ${maxPrice ? `AND p.price <= ${parseFloat(maxPrice)}` : ''}
+                   ${vendorId ? `AND p."vendorId" = '${vendorId}'` : ''}
+                   ${rating ? `AND (SELECT AVG(r.rating)::float FROM "Review" r WHERE r."productId" = p.id) >= ${parseFloat(rating)}` : ''}
+                 ORDER BY "averageRating" ${safeOrder}
+                 LIMIT ${pageSize} OFFSET ${skip}`
+            );
+
+            const countResult = await prisma.$queryRawUnsafe(
+                `SELECT COUNT(*) as count FROM "Product" p
+                 WHERE p."isActive" = true
+                   ${category ? `AND p."categoryId" = '${category}'` : ''}
+                   ${minPrice ? `AND p.price >= ${parseFloat(minPrice)}` : ''}
+                   ${maxPrice ? `AND p.price <= ${parseFloat(maxPrice)}` : ''}
+                   ${vendorId ? `AND p."vendorId" = '${vendorId}'` : ''}
+                   ${rating ? `AND (SELECT AVG(r.rating)::float FROM "Review" r WHERE r."productId" = p.id) >= ${parseFloat(rating)}` : ''}`
+            );
+
+            const totalCount = parseInt(countResult[0]?.count || '0', 10);
+
+            return res.status(200).json({
+                status: 'success',
+                data: {
+                    products: rawResults,
+                    pagination: {
+                        page: pageNum,
+                        limit: pageSize,
+                        totalCount,
+                        totalPages: Math.ceil(totalCount / pageSize),
+                    },
+                },
+            });
+        }
+
         orderBy[sortBy] = order;
 
         const [products, totalCount] = await Promise.all([

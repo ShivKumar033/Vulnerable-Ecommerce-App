@@ -12,6 +12,7 @@ const Products = () => {
   const [category, setCategory] = useState(searchParams.get('category') || '')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
+  const [rating, setRating] = useState('')
   const [sort, setSort] = useState('newest')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -36,14 +37,30 @@ const Products = () => {
   const fetchProducts = async () => {
     setLoading(true)
     try {
+      // Map sort values to sortBy and order
+      let sortBy = 'createdAt'
+      let order = 'desc'
+      if (sort === 'price_asc') {
+        sortBy = 'price'
+        order = 'asc'
+      } else if (sort === 'price_desc') {
+        sortBy = 'price'
+        order = 'desc'
+      } else if (sort === 'rating') {
+        sortBy = 'rating'
+        order = 'desc'
+      }
+
       const params = new URLSearchParams()
       params.append('page', page)
       params.append('limit', 12)
-      if (search) params.append('search', search)
+      if (search) params.append('keyword', search)
       if (category) params.append('category', category)
       if (minPrice) params.append('minPrice', minPrice)
       if (maxPrice) params.append('maxPrice', maxPrice)
-      if (sort) params.append('sort', sort)
+      if (rating) params.append('rating', rating)
+      if (sortBy) params.append('sortBy', sortBy)
+      if (order) params.append('order', order)
 
       const response = await api.get(`/products?${params.toString()}`)
       const productsData = response.data.data?.products || response.data.data || response.data.products || response.data
@@ -76,6 +93,7 @@ const Products = () => {
     setCategory('')
     setMinPrice('')
     setMaxPrice('')
+    setRating('')
     setSort('newest')
     setSearchParams({})
     setPage(1)
@@ -88,7 +106,7 @@ const Products = () => {
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <form onSubmit={handleSearch} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
               <input
@@ -131,6 +149,21 @@ const Products = () => {
                 placeholder="9999"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Min Rating</label>
+              <select
+                value={rating}
+                onChange={(e) => setRating(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">All Ratings</option>
+                <option value="5">5 Stars</option>
+                <option value="4">4+ Stars</option>
+                <option value="3">3+ Stars</option>
+                <option value="2">2+ Stars</option>
+                <option value="1">1+ Stars</option>
+              </select>
             </div>
           </div>
           <div className="flex items-center justify-between">

@@ -20,8 +20,8 @@ const Wallet = () => {
         api.get('/wallet'),
         api.get('/wallet/transactions'),
       ])
-      setWallet(walletRes.data || { balance: 0 })
-      setTransactions(transactionsRes.data || [])
+setWallet(walletRes.data || { balance: 0 })
+      const txnData = Array.isArray(transactionsRes.data) ? transactionsRes.data : Array.isArray(transactionsRes.data?.data) ? transactionsRes.data.data : []; setTransactions(txnData);
     } catch (error) {
       console.error('Error fetching wallet data:', error)
     } finally {
@@ -193,13 +193,13 @@ const Wallet = () => {
             {transactions.map((txn, idx) => (
               <div key={idx} className="flex justify-between items-center border-b pb-4">
                 <div>
-                  <p className="font-medium">{txn.type || 'Transaction'}</p>
+                  <p className="font-medium">{txn?.type || 'Transaction'}</p>
                   <p className="text-sm text-gray-500">
-                    {new Date(txn.createdAt).toLocaleDateString()}
+                    {new Date(txn?.createdAt || Date.now()).toLocaleDateString()}
                   </p>
                 </div>
-                <span className={`font-bold ${txn.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {txn.amount > 0 ? '+' : ''}${txn.amount?.toFixed(2)}
+                <span className={`font-bold ${(txn?.amount ?? 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ${(txn?.amount ?? 0) > 0 ? '+' : ''}${(txn?.amount ?? 0).toFixed(2)}
                 </span>
               </div>
             ))}

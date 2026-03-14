@@ -49,7 +49,7 @@ const ProductDetail = () => {
     setAddingToCart(true)
     try {
       await api.post('/cart', {
-        productId: parseInt(id),
+        productId: id, // Send as string (UUID)
         quantity,
         variant: selectedVariant,
       })
@@ -67,7 +67,7 @@ const ProductDetail = () => {
       return
     }
     try {
-      await api.post('/users/wishlist', { productId: parseInt(id) })
+      await api.post('/users/wishlist', { productId: id })
       alert('Added to wishlist!')
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to add to wishlist')

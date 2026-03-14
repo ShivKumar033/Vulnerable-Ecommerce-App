@@ -16,8 +16,9 @@ const Navbar = () => {
   const fetchCartCount = async () => {
     try {
       const response = await api.get('/cart')
-      if (response.data.items) {
-        setCartCount(response.data.items.reduce((sum, item) => sum + item.quantity, 0))
+      const cart = response.data.data?.cart || response.data.data || null
+      if (cart?.items) {
+        setCartCount(cart.items.reduce((sum, item) => sum + item.quantity, 0))
       }
     } catch (error) {
       // Guest cart might not be accessible

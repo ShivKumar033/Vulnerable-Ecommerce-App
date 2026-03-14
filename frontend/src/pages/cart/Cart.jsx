@@ -22,7 +22,8 @@ const Cart = () => {
   const fetchCart = async () => {
     try {
       const response = await api.get('/cart')
-      setCart(response.data)
+      // Backend returns { status: 'success', data: { cart: {...} } }
+      setCart(response.data.data?.cart || response.data.data || null)
     } catch (error) {
       console.error('Error fetching cart:', error)
     } finally {
@@ -30,12 +31,22 @@ const Cart = () => {
     }
   }
 
-  const handleUpdateQuantity = async (itemId, quantity) => {
-    if (quantity < 1) return
+  const handleUpdateQuantity = async (itemId, newQuantity) => {
+    if (newQuantity < 1) return
+    // Optimistic update - update UI immediately before API response
+    const previousCart = cart
+    setCart(prev => ({
+      ...prev,
+      items: prev.items.map(item => 
+        item.id === itemId ? { ...item, quantity: newQuantity } : item
+      )
+    }))
     try {
-      await api.put(`/cart/${itemId}`, { quantity })
+      await api.put(`/cart/${itemId}`, { quantity: newQuantity })
       fetchCart()
     } catch (error) {
+      // Revert on error
+      setCart(previousCart)
       alert(error.response?.data?.message || 'Failed to update quantity')
     }
   }
@@ -106,10 +117,13 @@ const Cart = () => {
   }
 
   const items = cart?.items || []
-  const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0)
   const tax = subtotal * 0.1 // 10% tax
   const shipping = subtotal > 100 ? 0 : 10 // Free shipping over $100
   const total = subtotal + tax + shipping
+
+  // Calculate item subtotals for display
+  const getItemTotal = (item) => (Number(item.price || 0) * item.quantity).toFixed(2)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -152,17 +166,19 @@ const Cart = () => {
                       )}
                       <p className="text-primary-600 font-bold">${typeof item.price === 'number' ? item.price.toFixed(2) : Number(item.price || 0).toFixed(2)}</p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-3">
                       <button
                         onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                        className="px-2 py-1 border rounded"
+                        className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-lg font-semibold"
+                        aria-label="Decrease quantity"
                       >
                         -
                       </button>
-                      <span className="w-8 text-center">{item.quantity}</span>
+                      <span className="w-12 text-center font-medium text-lg">{item.quantity}</span>
                       <button
                         onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                        className="px-2 py-1 border rounded"
+                        className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-lg font-semibold"
+                        aria-label="Increase quantity"
                       >
                         +
                       </button>

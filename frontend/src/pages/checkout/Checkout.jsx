@@ -48,8 +48,8 @@ const Checkout = () => {
         api.get('/cart'),
         api.get('/users/addresses'),
       ])
-      setCart(cartRes.data)
-      setAddresses(addressRes.data || [])
+      setCart(cartRes.data.data?.cart || cartRes.data.data || null)
+      setAddresses(addressRes.data.data || addressRes.data || [])
     } catch (error) {
       console.error('Error fetching data:', error)
     }

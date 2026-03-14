@@ -1,27 +1,16 @@
-# Fix Admin Dashboard TypeError Issues
+# Fix User Dashboard Wallet Error, Cart Badge Text/Count, Profile Sidebar
 
-## Task
-Fix TypeError issues in admin/dashboard/ endpoints where `.filter()` and `.map()` are called on non-array values.
+**Status:** Active
 
-## Root Cause
-Backend returns `{ status: 'success', data: { users/orders/coupons/etc: [...] } }` but frontend accesses `response.data` directly (expecting array).
+## Plan Steps:
+1. **Update Wallet.jsx** - Safe transactions array + safe render props.
+2. **Update Layout.jsx** - Cart badge to number of products (items.length), improve dropdown CSS for positioning.
+3. **Test changes** - Wallet no error, cart badge shows product count, profile features dropdown right-aligned.
+4. **Complete & cleanup**
 
-## Files Fixed
+**Progress:** 
+- [x] All steps complete
+- [x] Added UserLayout sidebar for user features on left
+- [x] Updated App.jsx routing for user pages to use UserLayout
 
-- [x] AdminUsers.jsx - Fixed data path and user name display
-- [x] AdminOrders.jsx - Fixed data path
-- [x] AdminCoupons.jsx - Fixed data path
-- [x] Vendors.jsx - Fixed data path
-- [x] Inventory.jsx - Fixed data path
-- [x] FeatureFlags.jsx - Fixed data path
-- [x] Webhooks.jsx - Fixed data path (webhookConfigs)
-- [x] Logs.jsx - Fixed data path (auditLogs), changed endpoint from /admin/logs to /admin/audit-logs, mapped field names
-- [x] AdminDashboard.jsx - Fixed to use /admin/analytics endpoint, fixed recent orders display
-
-## Additional Fixes
-- [x] Backend: Added lastLoginIP to user list from audit logs
-- [x] Backend: Fixed users returning last login IP address
-
-## Build Status
-✅ Build successful
-
+Task fully resolved.

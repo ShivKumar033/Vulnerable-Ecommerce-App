@@ -32,7 +32,7 @@ const Categories = () => {
     try {
       const [categoryRes, productsRes] = await Promise.all([
         api.get(`/categories/${categoryId}`),
-        api.get(`/products?categoryId=${categoryId}`)
+        api.get(`/products?category=${categoryId}`)
       ])
       setSelectedCategory(categoryRes.data.data?.category || categoryRes.data.data)
       const productsData = productsRes.data.data?.products || productsRes.data.data || productsRes.data.products || productsRes.data
