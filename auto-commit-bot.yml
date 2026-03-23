@@ -2,7 +2,7 @@ name: Auto Commit Bot (Every Minute)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "/5 * * * *"
   workflow_dispatch:
 
 permissions:
