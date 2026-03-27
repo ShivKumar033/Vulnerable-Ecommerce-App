@@ -34,8 +34,6 @@ async function authenticate(req, res, next) {
         // VULNERABLE: JWT verification trusts the decoded role without checking DB
         // If an attacker tampers with the JWT claims (e.g. changing role to ADMIN)
         // and the secret is weak (secret123), they gain privilege escalation.
-        // Maps to: OWASP A01:2021 – Broken Access Control
-        // PortSwigger – JWT vulnerabilities
         const decoded = verifyToken(token);
 
         // VULNERABLE: No DB lookup to verify user still exists / is active

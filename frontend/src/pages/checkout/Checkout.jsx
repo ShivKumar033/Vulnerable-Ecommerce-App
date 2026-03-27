@@ -11,14 +11,20 @@ const Checkout = () => {
   const [addresses, setAddresses] = useState([])
   const [selectedAddress, setSelectedAddress] = useState(null)
   const [cart, setCart] = useState(null)
+  const [showAddressForm, setShowAddressForm] = useState(false)
   
   // Address form
   const [addressForm, setAddressForm] = useState({
-    street: '',
+    label: '',
+    fullName: '',
+    addressLine1: '',
+    addressLine2: '',
     city: '',
     state: '',
-    zipCode: '',
-    country: '',
+    postalCode: '',
+    country: 'US',
+    phone: '',
+    isDefault: false,
   })
   
   // Payment form (mock)
@@ -49,7 +55,18 @@ const Checkout = () => {
         api.get('/users/addresses'),
       ])
       setCart(cartRes.data.data?.cart || cartRes.data.data || null)
-      setAddresses(addressRes.data.data || addressRes.data || [])
+      const addressList = addressRes.data?.data?.addresses || addressRes.data?.addresses || []
+      const normalizedAddresses = Array.isArray(addressList) ? addressList : []
+      setAddresses(normalizedAddresses)
+
+      if (normalizedAddresses.length > 0) {
+        const defaultAddress = normalizedAddresses.find((address) => address.isDefault)
+        setSelectedAddress(defaultAddress || normalizedAddresses[0])
+        setShowAddressForm(false)
+      } else {
+        setSelectedAddress(null)
+        setShowAddressForm(true)
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     }
@@ -60,8 +77,11 @@ const Checkout = () => {
     setLoading(true)
     try {
       const response = await api.post('/users/addresses', addressForm)
-      setAddresses([...addresses, response.data])
-      setSelectedAddress(response.data)
+      const createdAddress = response.data?.data?.address || response.data?.address || response.data
+      const updatedAddresses = [createdAddress, ...addresses]
+      setAddresses(updatedAddresses)
+      setSelectedAddress(createdAddress)
+      setShowAddressForm(false)
       setStep(2)
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to create address')
@@ -157,7 +177,18 @@ const Checkout = () => {
           {/* Existing Addresses */}
           {addresses.length > 0 && (
             <div className="mb-6">
-              <h3 className="font-semibold mb-2">Saved Addresses</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold">Saved Addresses</h3>
+                {!showAddressForm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddressForm(true)}
+                    className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                  >
+                    + Add New Address
+                  </button>
+                )}
+              </div>
               <div className="space-y-2">
                 {addresses.map((addr) => (
                   <div
@@ -167,31 +198,74 @@ const Checkout = () => {
                       selectedAddress?.id === addr.id ? 'border-primary-600 bg-primary-50' : 'hover:border-gray-400'
                     }`}
                   >
-                    <p>{addr.street}</p>
-                    <p className="text-gray-500">{addr.city}, {addr.state} {addr.zipCode}</p>
+                    <p className="font-semibold">{addr.fullName}</p>
+                    <p>{addr.addressLine1}</p>
+                    {addr.addressLine2 && <p>{addr.addressLine2}</p>}
+                    <p className="text-gray-500">{addr.city}, {addr.state} {addr.postalCode}</p>
+                    {addr.isDefault && (
+                      <span className="inline-block mt-2 px-2 py-1 bg-primary-100 text-primary-800 text-xs rounded">
+                        Default
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {addresses.length === 0 && (
+            <p className="text-gray-600 mb-4">No saved address found. Please create a shipping address to continue.</p>
+          )}
           
           {/* Add New Address Form - VULNERABLE: CSRF - no token */}
+          {showAddressForm && (
           <form onSubmit={handleCreateAddress}>
             <h3 className="font-semibold mb-2">Add New Address</h3>
             {/* VULNERABLE: Reflected XSS - fields rendered without sanitization in preview */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Street</label>
+                <label className="block text-sm font-medium mb-1">Full Name *</label>
                 <input
                   type="text"
-                  value={addressForm.street}
-                  onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                  value={addressForm.fullName}
+                  onChange={(e) => setAddressForm({ ...addressForm, fullName: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
                   required
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Address Label (e.g., Home, Work)</label>
+                <input
+                  type="text"
+                  value={addressForm.label}
+                  onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Street Address *</label>
+                <input
+                  type="text"
+                  value={addressForm.addressLine1}
+                  onChange={(e) => setAddressForm({ ...addressForm, addressLine1: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="123 Main St"
+                  required
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Street Address 2</label>
+                <input
+                  type="text"
+                  value={addressForm.addressLine2}
+                  onChange={(e) => setAddressForm({ ...addressForm, addressLine2: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Apt, suite, etc. (optional)"
+                />
+              </div>
               <div>
-                <label className="block text-sm font-medium mb-1">City</label>
+                <label className="block text-sm font-medium mb-1">City *</label>
                 <input
                   type="text"
                   value={addressForm.city}
@@ -201,7 +275,7 @@ const Checkout = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">State</label>
+                <label className="block text-sm font-medium mb-1">State *</label>
                 <input
                   type="text"
                   value={addressForm.state}
@@ -211,11 +285,11 @@ const Checkout = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Zip Code</label>
+                <label className="block text-sm font-medium mb-1">Postal Code *</label>
                 <input
                   type="text"
-                  value={addressForm.zipCode}
-                  onChange={(e) => setAddressForm({ ...addressForm, zipCode: e.target.value })}
+                  value={addressForm.postalCode}
+                  onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
                   required
                 />
@@ -227,8 +301,28 @@ const Checkout = () => {
                   value={addressForm.country}
                   onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
-                  required
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={addressForm.phone}
+                  onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={addressForm.isDefault}
+                    onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="ml-2 text-sm font-medium">Set as default address</span>
+                </label>
               </div>
             </div>
             <button
@@ -238,7 +332,27 @@ const Checkout = () => {
             >
               {loading ? 'Saving...' : 'Save & Continue'}
             </button>
+            {addresses.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAddressForm(false)}
+                className="mt-4 ml-2 px-6 py-2 border rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            )}
           </form>
+          )}
+
+          {addresses.length > 0 && selectedAddress && !showAddressForm && (
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="mt-4 bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700"
+            >
+              Continue to Payment
+            </button>
+          )}
         </div>
       )}
 
@@ -246,7 +360,7 @@ const Checkout = () => {
       {step === 2 && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold mb-4">Payment Method</h2>
-          <p className="text-gray-600 mb-4">Shipping to: {selectedAddress?.street}, {selectedAddress?.city}</p>
+          <p className="text-gray-600 mb-4">Shipping to: {selectedAddress?.fullName}, {selectedAddress?.addressLine1}, {selectedAddress?.city}</p>
           
           {/* Mock Stripe Payment Form */}
           <div className="space-y-4">
@@ -327,8 +441,11 @@ const Checkout = () => {
           
           <div className="mb-6">
             <h3 className="font-semibold mb-2">Shipping Address</h3>
-            <p>{selectedAddress?.street}</p>
-            <p>{selectedAddress?.city}, {selectedAddress?.state} {selectedAddress?.zipCode}</p>
+            <p className="font-semibold">{selectedAddress?.fullName}</p>
+            <p>{selectedAddress?.addressLine1}</p>
+            {selectedAddress?.addressLine2 && <p>{selectedAddress?.addressLine2}</p>}
+            <p>{selectedAddress?.city}, {selectedAddress?.state} {selectedAddress?.postalCode}</p>
+            {selectedAddress?.phone && <p className="text-gray-600">{selectedAddress?.phone}</p>}
           </div>
           
           <div className="border-t pt-4 mb-6">

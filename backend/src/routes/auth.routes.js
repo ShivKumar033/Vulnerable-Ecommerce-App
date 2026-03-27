@@ -4,10 +4,6 @@ import authenticate from '../middlewares/authenticate.js';
 import * as authController from '../controllers/auth.controller.js';
 import * as oauthController from '../controllers/oauth.controller.js';
 
-// ──────────────────────────────────────────────────────────────
-// Auth Routes — /api/v1/auth
-// ──────────────────────────────────────────────────────────────
-
 // Public routes (no authentication required)
 router.post('/register', authController.register);
 router.post('/login', authController.login);
@@ -18,9 +14,6 @@ router.post('/reset-password', authController.resetPassword);
 // Protected routes
 router.post('/logout', authenticate, authController.logout);
 
-// ──────────────────────────────────────────────────────────────
-// OAuth Routes — Google
-// ──────────────────────────────────────────────────────────────
 
 // VULNERABLE: Missing state parameter — no CSRF protection in OAuth flow
 // Maps to: PortSwigger – OAuth authentication vulnerabilities

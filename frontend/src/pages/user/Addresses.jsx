@@ -1,19 +1,25 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
 
+const emptyFormData = {
+  label: '',
+  fullName: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: 'US',
+  phone: '',
+  isDefault: false,
+}
+
 const Addresses = () => {
   const [addresses, setAddresses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [formData, setFormData] = useState({
-    street: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: '',
-    isDefault: false,
-  })
+  const [formData, setFormData] = useState(emptyFormData)
   const [submitting, setSubmitting] = useState(false)
   const [previewAddress, setPreviewAddress] = useState(null)
 
@@ -38,13 +44,18 @@ const Addresses = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
+    const payload = {
+      ...formData,
+      country: formData.country || 'US',
+    }
+
     try {
       if (editingId) {
         // VULNERABLE: IDOR - no ownership check
-        await api.put(`/users/addresses/${editingId}`, formData)
+        await api.put(`/users/addresses/${editingId}`, payload)
       } else {
         // VULNERABLE: CSRF - no token
-        await api.post('/users/addresses', formData)
+        await api.post('/users/addresses', payload)
       }
       fetchAddresses()
       resetForm()
@@ -57,14 +68,24 @@ const Addresses = () => {
 
   const handleEdit = (address) => {
     setFormData({
-      street: address.street,
-      city: address.city,
-      state: address.state,
-      zipCode: address.zipCode,
-      country: address.country,
-      isDefault: address.isDefault,
+      label: address.label || '',
+      fullName: address.fullName || '',
+      addressLine1: address.addressLine1 || address.street || '',
+      addressLine2: address.addressLine2 || '',
+      city: address.city || '',
+      state: address.state || '',
+      postalCode: address.postalCode || address.zipCode || '',
+      country: address.country || 'US',
+      phone: address.phone || '',
+      isDefault: Boolean(address.isDefault),
     })
     setEditingId(address.id)
+    setShowForm(true)
+  }
+
+  const handleAddAddress = () => {
+    setEditingId(null)
+    setFormData(emptyFormData)
     setShowForm(true)
   }
 
@@ -89,14 +110,7 @@ const Addresses = () => {
   }
 
   const resetForm = () => {
-    setFormData({
-      street: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: '',
-      isDefault: false,
-    })
+    setFormData(emptyFormData)
     setEditingId(null)
     setShowForm(false)
   }
@@ -114,7 +128,7 @@ const Addresses = () => {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">My Addresses</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={handleAddAddress}
           className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
         >
           Add Address
@@ -129,14 +143,45 @@ const Addresses = () => {
           </h2>
           {/* VULNERABLE: Reflected XSS - fields rendered without sanitization */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Label</label>
+                <input
+                  type="text"
+                  value={formData.label}
+                  onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Home, Work, etc."
+                />
+              </div>
+            </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Street</label>
+              <label className="block text-sm font-medium mb-1">Address Line 1</label>
               <input
                 type="text"
-                value={formData.street}
-                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                value={formData.addressLine1}
+                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Address Line 2</label>
+              <input
+                type="text"
+                value={formData.addressLine2}
+                onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -163,11 +208,11 @@ const Addresses = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Zip Code</label>
+                <label className="block text-sm font-medium mb-1">Postal Code</label>
                 <input
                   type="text"
-                  value={formData.zipCode}
-                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                  value={formData.postalCode}
+                  onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
                   required
                 />
@@ -179,9 +224,17 @@ const Addresses = () => {
                   value={formData.country}
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
-                  required
                 />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              />
             </div>
             <div>
               <label className="flex items-center">
@@ -240,9 +293,13 @@ const Addresses = () => {
             <div key={address.id} className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between items-start">
                 <div>
-                  <p>{address.street}</p>
-                  <p className="text-gray-600">{address.city}, {address.state} {address.zipCode}</p>
+                  <p className="font-semibold">{address.fullName || 'No name'}</p>
+                  {address.label && <p className="text-gray-600">{address.label}</p>}
+                  <p>{address.addressLine1 || address.street}</p>
+                  {address.addressLine2 && <p>{address.addressLine2}</p>}
+                  <p className="text-gray-600">{address.city}, {address.state} {address.postalCode || address.zipCode}</p>
                   <p className="text-gray-600">{address.country}</p>
+                  {address.phone && <p className="text-gray-600">{address.phone}</p>}
                   {address.isDefault && (
                     <span className="inline-block mt-2 px-2 py-1 bg-primary-100 text-primary-800 text-xs rounded">
                       Default

@@ -3,13 +3,7 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import crypto from 'crypto';
 
-// ──────────────────────────────────────────────────────────────
 // User Account Management Controller
-// ──────────────────────────────────────────────────────────────
-
-// ═══════════════════════════
-// PROFILE
-// ═══════════════════════════
 
 /**
  * GET /api/v1/users/profile
@@ -276,6 +270,7 @@ async function listAddresses(req, res, next) {
  */
 async function createAddress(req, res, next) {
     try {
+        
         const { label, fullName, addressLine1, addressLine2, city, state, postalCode, country, phone, isDefault } = req.body;
 
         if (!fullName || !addressLine1 || !city || !state || !postalCode) {
@@ -308,6 +303,7 @@ async function createAddress(req, res, next) {
                 isDefault: isDefault || false,
             },
         });
+        
 
         return res.status(201).json({
             status: 'success',

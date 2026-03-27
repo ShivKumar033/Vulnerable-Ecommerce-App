@@ -5,9 +5,8 @@ import authorize from '../middlewares/authorize.js';
 import * as orderController from '../controllers/order.controller.js';
 import * as userController from '../controllers/user.controller.js';
 
-// ──────────────────────────────────────────────────────────────
+
 // Order Routes — /api/v1/orders
-// ──────────────────────────────────────────────────────────────
 
 // All order operations require authentication
 router.use(authenticate);

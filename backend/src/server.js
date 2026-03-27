@@ -4,11 +4,6 @@ import { connectDB, disconnectDB } from './config/db.js';
 
 const PORT = process.env.PORT || 5000;
 
-// ──────────────────────────────────────────────────────────────
-// Start server with database connection
-// ──────────────────────────────────────────────────────────────
-
-// Create HTTP server explicitly (keeps event loop alive reliably with Express 5)
 const server = http.createServer(app);
 
 async function startServer() {
@@ -17,24 +12,21 @@ async function startServer() {
 
     server.listen(PORT, () => {
         console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   🛒  Vulnerable E-Commerce Platform                         ║
-║   ⚠️   FOR AUTHORIZED SECURITY TESTING ONLY                  ║
-║                                                               ║
-║   Server running on: http://localhost:${PORT}                  ║
-║   Environment:       ${(process.env.NODE_ENV || 'development').padEnd(23)}║
+╔═══════════════════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                               ║
+║   🛒  Vulnerable E-Commerce Platform                                                          ║
+║   ⚠️   FOR AUTHORIZED SECURITY TESTING ONLY                                                   ║
+║                                                                                               ║
+║   Server running on: http://localhost:${PORT}                                                 ║
+║   Environment:       ${(process.env.NODE_ENV || 'development').padEnd(23)}                    ║
 ║   Database:          ${dbConnected ? '✅ Connected'.padEnd(23) : '❌ Disconnected'.padEnd(23)}║
-║   Health check:      http://localhost:${PORT}/api/health       ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
+║   Health check:      http://localhost:${PORT}/api/health                                      ║
+║                                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════════════════════╝
     `);
     });
 }
 
-// ──────────────────────────────────────────────────────────────
-// Graceful shutdown
-// ──────────────────────────────────────────────────────────────
 const shutdown = async (signal) => {
     console.log(`${signal} received. Shutting down gracefully...`);
     await disconnectDB();
@@ -47,9 +39,6 @@ const shutdown = async (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// ──────────────────────────────────────────────────────────────
-// Error handlers
-// ──────────────────────────────────────────────────────────────
 
 // VULNERABLE: Unhandled rejection & uncaught exception handlers that leak info
 // Maps to: OWASP A05:2021 – Security Misconfiguration

@@ -21,10 +21,6 @@ const app = express();
 // Make prisma available on the app for route handlers
 app.set('prisma', prisma);
 
-// ---------------------------------------------------------------------------
-// Middleware Setup
-// ---------------------------------------------------------------------------
-
 // CORS configuration with proper headers for Referrer Policy and cross-origin requests
 app.use(cors({
     origin: function(origin, callback) {
@@ -61,7 +57,6 @@ app.use(cors({
 }));
 
 // Helmet configuration with security headers
-// Note: Some protections are intentionally disabled for this vulnerable demo app
 app.use(helmet({
     contentSecurityPolicy: false,   // no CSP
     frameguard: false,              // allows framing → clickjacking
@@ -83,15 +78,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Cookie parser
 app.use(cookieParser());
 
-// VULNERABLE: Publicly accessible static files directory.
-// Any file placed in /public is served without authentication.
-// Maps to: OWASP A01:2021 – Broken Access Control
-// PortSwigger – Information Disclosure
 app.use('/public', express.static(path.join(__dirname, '../public')));
 
-// ---------------------------------------------------------------------------
-// Health Check
-// ---------------------------------------------------------------------------
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'ok',
@@ -99,16 +87,11 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         // VULNERABLE: Information Disclosure – exposing environment details
         // Maps to: OWASP A05:2021 – Security Misconfiguration
-        // PortSwigger – Information Disclosure
         environment: process.env.NODE_ENV || 'development',
         nodeVersion: process.version,
         uptime: process.uptime(),
     });
 });
-
-// ---------------------------------------------------------------------------
-// API Routes — Core Backend Logic
-// ---------------------------------------------------------------------------
 
 // Phase 3: Core features
 app.use('/api/v1/auth', (await import('./routes/auth.routes.js')).default);
@@ -152,12 +135,6 @@ app.use((req, res) => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Global Error Handler
-// ---------------------------------------------------------------------------
-// VULNERABLE: Verbose error responses leak stack traces in all environments.
-// Maps to: OWASP A05:2021 – Security Misconfiguration
-// PortSwigger – Information Disclosure
 app.use((err, req, res, _next) => {
     console.error('Unhandled Error:', err);
     res.status(err.status || 500).json({

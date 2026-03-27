@@ -2,9 +2,7 @@ import { prisma } from '../config/db.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendOrderConfirmation } from '../utils/email.js';
 
-// ──────────────────────────────────────────────────────────────
 // Order Controller
-// ──────────────────────────────────────────────────────────────
 
 /**
  * POST /api/v1/orders/checkout
@@ -55,8 +53,7 @@ async function checkout(req, res, next) {
         // VULNERABLE: Race condition — no transaction or row-level locking.
         // Two concurrent checkout requests can both read the same stock,
         // both succeed, and over-sell products.
-        // Maps to: OWASP A04:2021 – Insecure Design
-        // PortSwigger – Race Conditions
+
 
         // Calculate subtotal from cart item prices (which may have been manipulated)
         let subtotal = 0;
@@ -65,8 +62,7 @@ async function checkout(req, res, next) {
         for (const item of cart.items) {
             // VULNERABLE: No re-validation of price from the product table.
             // The price in the cart item (set by the client) is used directly.
-            // Maps to: OWASP A04:2021 – Insecure Design
-            // PortSwigger – Business Logic Vulnerabilities
+
             const itemTotal = parseFloat(item.price) * item.quantity;
             subtotal += itemTotal;
 
@@ -95,8 +91,6 @@ async function checkout(req, res, next) {
             if (coupon && coupon.isActive) {
                 // VULNERABLE: Coupon reuse — no per-user usage tracking.
                 // Same user can apply the same coupon on every order.
-                // Maps to: OWASP A04:2021 – Insecure Design
-                // PortSwigger – Business Logic Vulnerabilities
 
                 if (coupon.expiresAt && coupon.expiresAt < new Date()) {
                     // Expired coupon — silently ignore (no error)
@@ -372,8 +366,6 @@ async function listOrders(req, res, next) {
         
         // VULNERABLE: Blind SQL injection — search parameter is used in raw query
         // when orderNumber is provided, allowing injection via query parameter.
-        // Maps to: OWASP A03:2021 – Injection
-        // PortSwigger – SQL Injection (Blind)
         
         // Add search filter for orderNumber (vulnerable to SQL injection)
         if (orderNumber) {
@@ -425,8 +417,6 @@ async function getOrder(req, res, next) {
 
         // VULNERABLE: IDOR — no check that the order belongs to req.user.
         // Any authenticated user can view any order by guessing/enumerating IDs.
-        // Maps to: OWASP A01:2021 – Broken Access Control
-        // PortSwigger – Access Control Vulnerabilities (IDOR)
         const order = await prisma.order.findUnique({
             where: { id },
             include: {

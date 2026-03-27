@@ -5,14 +5,8 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendPasswordResetEmail } from '../utils/email.js';
 import crypto from 'crypto';
 
-// ──────────────────────────────────────────────────────────────
-// Auth Controller
-// ──────────────────────────────────────────────────────────────
 
-/**
- * POST /api/v1/auth/register
- * Create a new user account.
- */
+//Create a new user account.
 async function register(req, res, next) {
     try {
         const { email, password, firstName, lastName, phone, role } = req.body;
@@ -30,7 +24,6 @@ async function register(req, res, next) {
         if (existingUser) {
             // VULNERABLE: Account enumeration — reveals that the email is registered
             // Maps to: OWASP A07:2021 – Identification and Authentication Failures
-            // PortSwigger – Authentication vulnerabilities (username enumeration)
             return res.status(409).json({
                 status: 'error',
                 message: 'An account with this email already exists.',
@@ -42,7 +35,6 @@ async function register(req, res, next) {
         // VULNERABLE: Mass assignment — client can send `role` in the request body
         // and it will be written directly to the database, allowing privilege escalation.
         // Maps to: OWASP A01:2021 – Broken Access Control
-        // PortSwigger – Access Control Vulnerabilities
         const user = await prisma.user.create({
             data: {
                 email,
@@ -120,10 +112,8 @@ async function register(req, res, next) {
     }
 }
 
-/**
- * POST /api/v1/auth/login
- * Verify credentials and issue JWT tokens.
- */
+// Verify credentials and issue JWT tokens.
+
 async function login(req, res, next) {
     try {
         const { email, password } = req.body;
@@ -140,7 +130,6 @@ async function login(req, res, next) {
         if (!user) {
             // VULNERABLE: Account enumeration — different message for non-existent user
             // Maps to: OWASP A07:2021 – Identification and Authentication Failures
-            // PortSwigger – Authentication vulnerabilities
             return res.status(401).json({
                 status: 'error',
                 message: 'No account found with this email.',
@@ -405,13 +394,11 @@ async function forgotPassword(req, res, next) {
 
         // VULNERABLE: Host header injection — uses user-supplied Host header to generate reset URL
         // This allows attackers to poison password reset links by manipulating the Host header
-        // Maps to: PortSwigger – Host Header Attack
         // Maps to: OWASP A07:2021 – Identification and Authentication Failures
         const resetUrl = `http://${req.headers.host}/reset-password?token=${resetToken}`;
 
         // VULNERABLE: Password reset token returned in API response (should be emailed)
         // Maps to: OWASP A07:2021 – Identification and Authentication Failures
-        // PortSwigger – Authentication vulnerabilities (Password reset poisoning)
 
         // Send password reset email (mock)
         await sendPasswordResetEmail({
