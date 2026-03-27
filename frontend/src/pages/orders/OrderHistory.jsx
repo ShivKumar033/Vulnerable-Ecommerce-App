@@ -17,6 +17,7 @@ const OrderHistory = () => {
       const response = await api.get('/orders')
       // Handle different response formats
       const ordersData = response.data?.data?.orders || response.data?.orders || response.data || []
+      
       setOrders(Array.isArray(ordersData) ? ordersData : [])
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -110,7 +111,7 @@ const OrderHistory = () => {
                 </div>
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Total:</span>
-                  <span className="font-bold">${order.total?.toFixed(2)}</span>
+                  <span className="font-bold">${ Number(order.totalAmount).toFixed(2) }</span>
                 </div>
                 {order.trackingNumber && (
                   <div className="flex justify-between">

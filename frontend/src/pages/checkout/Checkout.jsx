@@ -98,26 +98,54 @@ const Checkout = () => {
   const handlePlaceOrder = async () => {
     setProcessing(true)
     try {
-      // Create payment intent
-      const intentRes = await api.post('/payments/create-intent', {
-        amount: calculateTotal(),
-      })
-      
-      // Confirm payment (mock)
-      await api.post('/payments/confirm', {
-        paymentIntentId: intentRes.data.id,
-      })
-      
-      // Place order
+      if (!selectedAddress) {
+        alert('Please select a shipping address')
+        setProcessing(false)
+        return
+      }
+
+      // Step 1: Create order FIRST (required to get orderId)
       const orderRes = await api.post('/orders/checkout', {
-        addressId: selectedAddress?.id,
-        paymentIntentId: intentRes.data.id,
+        addressId: selectedAddress.id,
       })
-      
-      setOrderId(orderRes.data.id)
-      setOrderComplete(true)
+
+      if (!orderRes.data?.data?.order?.id) {
+        throw new Error('Failed to create order')
+      }
+
+      const orderId = orderRes.data.data.order.id
+      const totalAmount = orderRes.data.data.order.totalAmount
+
+      // Step 2: Create payment intent with orderId
+      const intentRes = await api.post('/payments/create-intent', {
+        orderId,
+        amount: totalAmount,
+      })
+
+      if (!intentRes.data?.data?.paymentIntent) {
+        throw new Error('Failed to create payment intent')
+      }
+
+      const paymentIntent = intentRes.data.data.paymentIntent
+
+      // Step 3: Confirm payment with card details
+      const confirmRes = await api.post('/payments/confirm', {
+        paymentIntent,
+        cardNumber: paymentForm.cardNumber,
+        cardExpiry: paymentForm.expiry,
+        cardCvc: paymentForm.cvv,
+        cardName: paymentForm.nameOnCard,
+        saveCard: false,
+      })
+
+      if (confirmRes.data?.data?.status === 'COMPLETED') {
+        setOrderId(orderId)
+        setOrderComplete(true)
+      } else {
+        alert('Payment failed. Please try again.')
+      }
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to place order')
+      alert(error.response?.data?.message || error.message || 'Failed to place order')
     } finally {
       setProcessing(false)
     }

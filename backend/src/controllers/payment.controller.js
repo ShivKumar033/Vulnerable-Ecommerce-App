@@ -10,8 +10,6 @@ import crypto from 'crypto';
  * POST /api/v1/payments/create-intent
  * Create a mock payment intent.
  * VULNERABLE: No idempotency key enforcement - can create multiple intents for same order
- * Maps to: OWASP A04:2021 – Insecure Design
- * PortSwigger – Business Logic Vulnerabilities
  */
 async function createPaymentIntent(req, res, next) {
     try {
@@ -93,8 +91,6 @@ async function createPaymentIntent(req, res, next) {
  * POST /api/v1/payments/confirm
  * Confirm a payment using a payment intent.
  * VULNERABLE: No proper payment intent status check - can confirm already confirmed payments
- * Maps to: OWASP A04:2021 – Insecure Design
- * PortSwigger – Business Logic Vulnerabilities
  */
 async function confirmPayment(req, res, next) {
     try {
