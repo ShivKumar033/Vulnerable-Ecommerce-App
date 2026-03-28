@@ -92,7 +92,7 @@ const AdminOrders = () => {
             {filteredOrders.map((order) => (
               <tr key={order.id}>
                 <td className="px-6 py-4 whitespace-nowrap">#{order.id}</td>
-                <td className="px-6 py-4">{order.user?.name || 'N/A'}</td>
+                <td className="px-6 py-4">{order.user?.firstName || 'N/A'}</td>
                 <td className="px-6 py-4">${order.total?.toFixed(2)}</td>
                 <td className="px-6 py-4">
                   <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">

@@ -32,8 +32,6 @@ function authorize(...roles) {
                 status: 'error',
                 message: 'Insufficient permissions. Required role(s): ' + roles.join(', '),
                 // VULNERABLE: Tells attacker exactly what roles are needed
-                // Maps to: OWASP A05:2021 – Security Misconfiguration
-                // PortSwigger – Information Disclosure
                 requiredRoles: roles,
                 currentRole: req.user.role,
             });

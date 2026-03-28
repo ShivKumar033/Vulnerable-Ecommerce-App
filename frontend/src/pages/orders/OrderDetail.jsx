@@ -89,7 +89,6 @@ const OrderDetail = () => {
   }
 
   const currentStep = getStatusStep(order.status);
-  console.log("Order current status: ", order);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

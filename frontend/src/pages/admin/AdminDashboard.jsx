@@ -67,7 +67,7 @@ const AdminDashboard = () => {
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-gray-500 text-sm">Total Revenue</h3>
-          <p className="text-3xl font-bold mt-2">${stats.totalRevenue?.toFixed(2)}</p>
+          <p className="text-3xl font-bold mt-2">${Number(stats.totalRevenue || 0).toFixed(2)}</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-gray-500 text-sm">Total Products</h3>
@@ -132,7 +132,7 @@ const AdminDashboard = () => {
                   <tr key={order.id} className="border-t">
                     <td className="px-4 py-3">#{order.id}</td>
                     <td className="px-4 py-3">{order.user?.firstName ? `${order.user.firstName} ${order.user.lastName || ''}` : order.user?.email || 'N/A'}</td>
-                    <td className="px-4 py-3">${order.totalAmount?.toFixed(2) || order.total?.toFixed(2)}</td>
+                    <td className="px-4 py-3">${Number(order.totalAmount || 0).toFixed(2) || order.total?.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
                         {order.status}

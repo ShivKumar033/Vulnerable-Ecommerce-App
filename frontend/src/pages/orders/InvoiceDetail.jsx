@@ -7,7 +7,7 @@ const InvoiceDetail = () => {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [order, setOrder] = useState(null)
+  const [order, setOrder] = useState([])
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
 
@@ -18,7 +18,8 @@ const InvoiceDetail = () => {
   const fetchOrder = async () => {
     try {
       const response = await api.get(`/orders/${id}`)
-      setOrder(response.data)
+      const ordersData = response.data?.data?.order || response.data?.orders || response.data || []
+      setOrder(ordersData)
     } catch (error) {
       console.error('Error fetching order:', error)
       alert('Order not found')
@@ -170,25 +171,25 @@ const InvoiceDetail = () => {
           <div className="w-64">
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">Subtotal:</span>
-              <span>${order.subtotal?.toFixed(2)}</span>
+              <span>${Number(order.subtotal).toFixed(2)}</span>
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">Tax:</span>
-              <span>${order.tax?.toFixed(2)}</span>
+              <span>${order.tax}</span>
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">Shipping:</span>
-              <span>${order.shipping?.toFixed(2)}</span>
+              <span>${order.shipping || 0}</span>
             </div>
             {order.discount > 0 && (
               <div className="flex justify-between mb-2 text-green-600">
                 <span>Discount:</span>
-                <span>-${order.discount?.toFixed(2)}</span>
+                <span>-${order.discount}</span>
               </div>
             )}
             <div className="flex justify-between border-t pt-2 font-bold text-lg">
               <span>Total:</span>
-              <span>${order.total?.toFixed(2)}</span>
+              <span>${order.totalAmount}</span>
             </div>
           </div>
         </div>

@@ -19,6 +19,8 @@ const OrderHistory = () => {
       const ordersData = response.data?.data?.orders || response.data?.orders || response.data || []
       
       setOrders(Array.isArray(ordersData) ? ordersData : [])
+      console.log(orders);
+      
     } catch (error) {
       console.error('Error fetching orders:', error)
       setOrders([])
@@ -34,7 +36,8 @@ const OrderHistory = () => {
     const matchesStatus = !statusFilter || order.status === statusFilter
     return matchesSearch && matchesStatus
   })
-
+//  console.log("FilteredOrders: ", filteredOrders);
+ 
   const getStatusColor = (status) => {
     const colors = {
       PENDING: 'bg-yellow-100 text-yellow-800',
