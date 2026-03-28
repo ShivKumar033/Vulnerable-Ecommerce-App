@@ -9,7 +9,6 @@ import { AuthProvider } from './contexts/AuthContext.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
@@ -28,6 +27,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>
-  </React.StrictMode>,
 )
 

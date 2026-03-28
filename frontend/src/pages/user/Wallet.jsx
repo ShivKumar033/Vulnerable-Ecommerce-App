@@ -8,6 +8,7 @@ const Wallet = () => {
   const [showAddForm, setShowAddForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
   const [amount, setAmount] = useState('')
+  const [recipientId, setRecipientId] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -17,17 +18,19 @@ const Wallet = () => {
   const fetchData = async () => {
     try {
       const [walletRes, transactionsRes] = await Promise.all([
-        api.get('/wallet'),
-        api.get('/wallet/transactions'),
+        api.get('/wallet')
       ])
-setWallet(walletRes.data || { balance: 0 })
-      const txnData = Array.isArray(transactionsRes.data) ? transactionsRes.data : Array.isArray(transactionsRes.data?.data) ? transactionsRes.data.data : []; setTransactions(txnData);
+      
+setWallet(walletRes.data.data.wallet || { balance: 0 })
+      const txnData = walletRes.data?.data?.wallet.transactions
+      setTransactions(Array.isArray(txnData) ? txnData : [])
     } catch (error) {
       console.error('Error fetching wallet data:', error)
     } finally {
       setLoading(false)
     }
   }
+
 
   const handleAddCredit = async (e) => {
     e.preventDefault()
@@ -52,11 +55,12 @@ setWallet(walletRes.data || { balance: 0 })
     try {
       // VULNERABLE: IDOR + race condition
       await api.post('/wallet/transfer', { 
-        recipientId: 1, // Would be from form
+        recipientId: recipientId.trim(),
         amount: parseFloat(amount) 
       })
       alert('Transfer successful!')
       setAmount('')
+      setRecipientId('')
       setShowTransferForm(false)
       fetchData()
     } catch (error) {
@@ -64,6 +68,31 @@ setWallet(walletRes.data || { balance: 0 })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const addCreditTransactions = transactions.filter(
+    (txn) => txn?.type === 'credit' && txn?.metadata?.source === 'user_topup'
+  )
+
+  const transferTransactions = transactions.filter(
+    (txn) => txn?.metadata?.transferType === 'outgoing' || txn?.metadata?.transferType === 'incoming'
+  )
+
+  const getTransactionLabel = (txn) => {
+    if (txn?.metadata?.transferType === 'outgoing') return 'Transfer Sent'
+    if (txn?.metadata?.transferType === 'incoming') return 'Transfer Received'
+    if (txn?.metadata?.source === 'user_topup') return 'Add Credit'
+    return txn?.type || 'Transaction'
+  }
+
+  const getAmountClass = (txn) => {
+    const isDebit = txn?.metadata?.transferType === 'outgoing' || txn?.type === 'debit'
+    return isDebit ? 'text-red-600' : 'text-green-600'
+  }
+
+  const getAmountText = (txn) => {
+    const isDebit = txn?.metadata?.transferType === 'outgoing' || txn?.type === 'debit'
+    return `${isDebit ? '-' : '+'}$${Number(txn?.amount ?? 0).toFixed(2)}`
   }
 
   if (loading) {
@@ -81,7 +110,7 @@ setWallet(walletRes.data || { balance: 0 })
       {/* Balance Card */}
       <div className="bg-gradient-to-r from-green-400 to-green-600 rounded-lg shadow-lg p-8 mb-8 text-white">
         <h2 className="text-xl mb-2">Your Balance</h2>
-        <p className="text-5xl font-bold">${(wallet.balance || 0).toFixed(2)}</p>
+        <p className="text-5xl font-bold">${Number(wallet.balance || 0).toFixed(2)}</p>
       </div>
 
       {/* Actions */}
@@ -145,7 +174,9 @@ setWallet(walletRes.data || { balance: 0 })
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Recipient ID</label>
               <input
-                type="number"
+                type="text"
+                value={recipientId}
+                onChange={(e) => setRecipientId(e.target.value)}
                 className="w-full px-3 py-2 border rounded-md"
                 placeholder="User ID"
                 required
@@ -184,27 +215,54 @@ setWallet(walletRes.data || { balance: 0 })
       )}
 
       {/* Transactions */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold mb-4">Transaction History</h2>
-        {transactions.length === 0 ? (
-          <p className="text-gray-500">No transactions yet</p>
-        ) : (
-          <div className="space-y-4">
-            {transactions.map((txn, idx) => (
-              <div key={idx} className="flex justify-between items-center border-b pb-4">
-                <div>
-                  <p className="font-medium">{txn?.type || 'Transaction'}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(txn?.createdAt || Date.now()).toLocaleDateString()}
-                  </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold mb-4">Add Credit History</h2>
+          {addCreditTransactions.length === 0 ? (
+            <p className="text-gray-500">No add-credit transactions yet</p>
+          ) : (
+            <div className="space-y-4">
+              {addCreditTransactions.map((txn) => (
+                <div key={txn?.id} className="flex justify-between items-center border-b pb-4">
+                  <div>
+                    <p className="font-medium">{getTransactionLabel(txn)}</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(txn?.createdAt || Date.now()).toLocaleDateString()}
+                    </p>
+                    {txn?.description ? (
+                      <p className="text-xs text-gray-500">{txn.description}</p>
+                    ) : null}
+                  </div>
+                  <span className={`font-bold ${getAmountClass(txn)}`}>{getAmountText(txn)}</span>
                 </div>
-                <span className={`font-bold ${(txn?.amount ?? 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${(txn?.amount ?? 0) > 0 ? '+' : ''}${(txn?.amount ?? 0).toFixed(2)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold mb-4">Transfer History</h2>
+          {transferTransactions.length === 0 ? (
+            <p className="text-gray-500">No transfer transactions yet</p>
+          ) : (
+            <div className="space-y-4">
+              {transferTransactions.map((txn) => (
+                <div key={txn?.id} className="flex justify-between items-center border-b pb-4">
+                  <div>
+                    <p className="font-medium">{getTransactionLabel(txn)}</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(txn?.createdAt || Date.now()).toLocaleDateString()}
+                    </p>
+                    {txn?.description ? (
+                      <p className="text-xs text-gray-500">{txn.description}</p>
+                    ) : null}
+                  </div>
+                  <span className={`font-bold ${getAmountClass(txn)}`}>{getAmountText(txn)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

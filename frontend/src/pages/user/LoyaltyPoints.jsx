@@ -16,12 +16,10 @@ const LoyaltyPoints = () => {
         api.get('/loyalty/balance'),
         api.get('/loyalty/history'),
       ])
+      
       // Handle different response formats
       const balanceData = balanceRes.data?.data?.balance || balanceRes.data?.balance || 0
-      const historyData = historyRes.data?.data?.history || 
-                         historyRes.data?.history || 
-                         historyRes.data || 
-                         []
+      const historyData = balanceRes.data?.data?.transactions || balanceRes.data?.transactions || []
       setBalance(balanceData)
       setHistory(Array.isArray(historyData) ? historyData : [])
     } catch (error) {
@@ -30,7 +28,8 @@ const LoyaltyPoints = () => {
     } finally {
       setLoading(false)
     }
-  }
+  };
+  
 
   if (loading) {
     return (
