@@ -201,7 +201,10 @@ async function redeemGiftCard(req, res, next) {
         if (updated.currentBalance <= 0) {
             await prisma.giftCard.update({
                 where: { id: giftCard.id },
-                data: { status: 'USED' },
+                data: {
+                    status: 'USED',
+                    expiresAt: new Date(),
+                },
             });
         }
 

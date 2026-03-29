@@ -157,6 +157,9 @@ const OrderDetail = () => {
                   <h3 className="font-medium">
                     {item.product?.name || "Product"}
                   </h3>
+                  <p className="text-gray-500 text-sm">
+                    Product ID: {item.productId || item.product?.id || "N/A"}
+                  </p>
                   <p className="text-gray-500">Qty: {item.quantity}</p>
                 </div>
                 <div className="text-right">

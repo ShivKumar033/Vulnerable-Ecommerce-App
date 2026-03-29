@@ -9,6 +9,34 @@ const GiftCards = () => {
   const [purchasedCode, setPurchasedCode] = useState(null)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemCode, setRedeemCode] = useState('')
+  const [redeemAmount, setRedeemAmount] = useState('')
+  const [checkingBalance, setCheckingBalance] = useState(false)
+  const [checkedGiftCard, setCheckedGiftCard] = useState(null)
+
+  const formatDateTime = (dateValue, fallback = 'N/A') => {
+    if (!dateValue) return fallback
+    const date = new Date(dateValue)
+    if (Number.isNaN(date.getTime())) return fallback
+
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).formatToParts(date)
+
+    const getPart = (type) => parts.find((part) => part.type === type)?.value || ''
+    const day = getPart('day')
+    const month = getPart('month')
+    const year = getPart('year')
+    const hour = getPart('hour')
+    const minute = getPart('minute')
+    const dayPeriod = getPart('dayPeriod').toUpperCase()
+
+    return `${day} ${month} ${year}, ${hour}:${minute} ${dayPeriod}`
+  }
 
   useEffect(() => {
     fetchMyCards()
@@ -16,14 +44,16 @@ const GiftCards = () => {
 
   const fetchMyCards = async () => {
     try {
-      const response = await api.get('/giftcards/my')
-      setMyCards(response.data || [])
+      const response = await api.get('/giftcards')
+      
+      setMyCards(response?.data?.data?.giftCards || [])
     } catch (error) {
       console.error('Error fetching gift cards:', error)
     } finally {
       setLoading(false)
     }
   }
+  
 
   const handlePurchase = async (e) => {
     e.preventDefault()
@@ -44,14 +74,38 @@ const GiftCards = () => {
     e.preventDefault()
     setRedeeming(true)
     try {
-      await api.post('/giftcards/redeem', { code: redeemCode })
+      await api.post('/giftcards/redeem', {
+        code: redeemCode,
+        amount: parseFloat(redeemAmount)
+      })
       alert('Gift card redeemed!')
       setRedeemCode('')
+      setRedeemAmount('')
       fetchMyCards()
     } catch (error) {
       alert(error.response?.data?.message || 'Invalid gift card code')
     } finally {
       setRedeeming(false)
+    }
+  }
+
+  const handleCheckBalance = async () => {
+    if (!redeemCode.trim()) {
+      alert('Please enter a gift card code')
+      return
+    }
+
+    setCheckingBalance(true)
+    try {
+      const response = await api.get('/giftcards/check', {
+        params: { code: redeemCode }
+      })
+      setCheckedGiftCard(response?.data?.data?.giftCard || null)
+    } catch (error) {
+      setCheckedGiftCard(null)
+      alert(error.response?.data?.message || 'Failed to check gift card balance')
+    } finally {
+      setCheckingBalance(false)
     }
   }
 
@@ -119,9 +173,44 @@ const GiftCards = () => {
               <input
                 type="text"
                 value={redeemCode}
-                onChange={(e) => setRedeemCode(e.target.value)}
+                onChange={(e) => {
+                  setRedeemCode(e.target.value)
+                  setCheckedGiftCard(null)
+                }}
                 className="w-full px-3 py-2 border rounded-md"
                 placeholder="Enter code"
+                required
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleCheckBalance}
+              disabled={checkingBalance}
+              className="w-full border border-primary-600 text-primary-600 py-2 rounded-md hover:bg-primary-50 disabled:opacity-50 mb-4"
+            >
+              {checkingBalance ? 'Checking...' : 'Check Balance'}
+            </button>
+
+            {checkedGiftCard && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm">
+                <p className="font-medium">Balance: ${Number(checkedGiftCard.currentBalance || 0).toFixed(2)}</p>
+                <p className="text-gray-600">Status: {checkedGiftCard.status}</p>
+                <p className="text-gray-600">
+                  Expires At: {formatDateTime(checkedGiftCard.expiresAt, 'Never')}
+                </p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Amount</label>
+              <input
+                type="number"
+                value={redeemAmount}
+                onChange={(e) => setRedeemAmount(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+                placeholder="Enter amount"
+                min="0.01"
+                step="0.01"
                 required
               />
             </div>
@@ -147,18 +236,31 @@ const GiftCards = () => {
               <div key={idx} className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="font-mono text-lg">{card.code}</p>
+                    <p className="currentBalanceno text-lg">{card.code}</p>
                     <p className="text-gray-500">
-                      Balance: ${(card.balance || 0).toFixed(2)}
+                      Balance: ${Number(card.currentBalance || 0).toFixed(2)}
                     </p>
                     <p className="text-sm text-gray-400">
-                      Expires: {card.expiresAt ? new Date(card.expiresAt).toLocaleDateString() : 'Never'}
+                      Created At: {formatDateTime(card.createdAt, 'N/A')}
                     </p>
+                    <p className="text-sm text-gray-400">
+                      Expires At: {formatDateTime(card.expiresAt, 'Never')}
+                    </p>
+                    <div className="mt-2 text-sm text-gray-500">
+                      <p className="font-medium text-gray-600">Redeemed By</p>
+                      {card.redeemedBy ? (
+                        <>
+                          <p>Email: {card.redeemedBy.email || 'N/A'}</p>
+                        </>
+                      ) : (
+                        <p>Not redeemed yet</p>
+                      )}
+                    </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    card.balance > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    card.currentBalance > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {card.balance > 0 ? 'Active' : 'Used'}
+                    {card.currentBalance > 0 ? 'Active' : 'Used'}
                   </span>
                 </div>
               </div>

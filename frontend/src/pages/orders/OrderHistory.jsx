@@ -16,10 +16,9 @@ const OrderHistory = () => {
     try {
       const response = await api.get('/orders')
       // Handle different response formats
-      const ordersData = response.data?.data?.orders || response.data?.orders || response.data || []
+      const ordersData = response.data?.data?.orders || response.data?.orders || response.data || [];
       
-      setOrders(Array.isArray(ordersData) ? ordersData : [])
-      console.log(orders);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
       
     } catch (error) {
       console.error('Error fetching orders:', error)
