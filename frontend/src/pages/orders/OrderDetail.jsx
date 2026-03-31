@@ -33,7 +33,7 @@ const OrderDetail = () => {
     setCanceling(true);
     try {
       // VULNERABLE: CSRF - no token validation
-      await api.put(`/orders/${id}/cancel`);
+      await api.put(`/orders/${id}/cancel`, { status: "CANCELLED" });
       alert("Order cancelled!");
       fetchOrder();
     } catch (error) {
@@ -64,7 +64,11 @@ const OrderDetail = () => {
     return steps[status] || 0;
   };
 
-  const statusSteps = ["Pending", "Paid", "Shipped", "Delivered"];
+  const isCancelled = order?.status === "CANCELLED";
+  const statusSteps = isCancelled
+    ? ["Cancelled"]
+    : ["Pending", "Paid", "Shipped", "Delivered"];
+  const canCancelOrder = ["PENDING", "PAID"].includes(order?.status);
 
   if (loading) {
     return (
@@ -88,7 +92,7 @@ const OrderDetail = () => {
     );
   }
 
-  const currentStep = getStatusStep(order.status);
+  const currentStep = isCancelled ? 0 : getStatusStep(order.status);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -121,15 +125,23 @@ const OrderDetail = () => {
               <div key={idx} className="flex flex-col items-center flex-1">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    idx <= currentStep
+                    isCancelled
+                      ? "bg-red-600 text-white"
+                      : idx <= currentStep
                       ? "bg-primary-600 text-white"
                       : "bg-gray-200 text-gray-500"
                   }`}
                 >
-                  {idx < currentStep ? "✓" : idx + 1}
+                  {isCancelled ? "✕" : idx < currentStep ? "✓" : idx + 1}
                 </div>
                 <span
-                  className={`mt-2 text-sm ${idx <= currentStep ? "text-gray-900" : "text-gray-500"}`}
+                  className={`mt-2 text-sm ${
+                    isCancelled
+                      ? "text-red-700"
+                      : idx <= currentStep
+                        ? "text-gray-900"
+                        : "text-gray-500"
+                  }`}
                 >
                   {step}
                 </span>
@@ -214,7 +226,7 @@ const OrderDetail = () => {
         )}
 
         {/* Actions */}
-        {order.status === "PENDING" && (
+        {canCancelOrder && (
           <div className="border-t pt-6 mt-6 flex justify-end">
             <button
               onClick={handleCancelOrder}

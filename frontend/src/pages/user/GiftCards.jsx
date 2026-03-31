@@ -3,7 +3,17 @@ import api from '../../services/api'
 
 const GiftCards = () => {
   const [myCards, setMyCards] = useState([])
+  const [paymentMethods, setPaymentMethods] = useState([])
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState('')
+  const [useNewCard, setUseNewCard] = useState(false)
+  const [newCardForm, setNewCardForm] = useState({
+    cardNumber: '',
+    expiry: '',
+    brand: 'visa',
+    isDefault: false,
+  })
   const [loading, setLoading] = useState(true)
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true)
   const [purchasing, setPurchasing] = useState(false)
   const [amount, setAmount] = useState(50)
   const [purchasedCode, setPurchasedCode] = useState(null)
@@ -40,6 +50,7 @@ const GiftCards = () => {
 
   useEffect(() => {
     fetchMyCards()
+    fetchPaymentMethods()
   }, [])
 
   const fetchMyCards = async () => {
@@ -53,16 +64,106 @@ const GiftCards = () => {
       setLoading(false)
     }
   }
+
+  const fetchPaymentMethods = async () => {
+    try {
+      const response = await api.get('/users/payment-methods')
+      const methods = response?.data?.data?.paymentMethods || response?.data?.paymentMethods || response?.data || []
+      const normalizedMethods = Array.isArray(methods) ? methods : []
+
+      setPaymentMethods(normalizedMethods)
+
+      const defaultMethod = normalizedMethods.find((method) => method.isDefault)
+      setSelectedPaymentMethodId(defaultMethod?.id || normalizedMethods[0]?.id || '')
+    } catch (error) {
+      console.error('Error fetching payment methods:', error)
+      setPaymentMethods([])
+      setSelectedPaymentMethodId('')
+    } finally {
+      setLoadingPaymentMethods(false)
+    }
+  }
+
+  const formatPaymentMethodLabel = (method) => {
+    const brand = method?.brand ? String(method.brand).toUpperCase() : 'CARD'
+    const last4 = method?.last4 || '****'
+    const expiry = method?.expMonth && method?.expYear ? ` (Exp ${method.expMonth}/${method.expYear})` : ''
+    return `${brand} •••• ${last4}${expiry}`
+  }
+
+  const parseExpiry = (expiry) => {
+    const trimmed = String(expiry || '').trim()
+    const match = trimmed.match(/^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/)
+    if (!match) return null
+
+    const month = Number(match[1])
+    const yearPart = match[2]
+    const year = yearPart.length === 2 ? 2000 + Number(yearPart) : Number(yearPart)
+
+    return { month, year }
+  }
   
 
   const handlePurchase = async (e) => {
     e.preventDefault()
+
+    let paymentMethodIdToUse = selectedPaymentMethodId
+
+    if (useNewCard) {
+      const sanitizedCardNumber = String(newCardForm.cardNumber || '').replace(/\s+/g, '')
+      if (!/^\d{12,19}$/.test(sanitizedCardNumber)) {
+        alert('Please enter a valid card number')
+        return
+      }
+
+      const parsedExpiry = parseExpiry(newCardForm.expiry)
+      if (!parsedExpiry) {
+        alert('Please enter expiry in MM/YY format')
+        return
+      }
+
+      setPurchasing(true)
+      try {
+        const saveCardResponse = await api.post('/users/payment-methods', {
+          type: 'card',
+          last4: sanitizedCardNumber.slice(-4),
+          brand: newCardForm.brand,
+          expMonth: parsedExpiry.month,
+          expYear: parsedExpiry.year,
+          isDefault: newCardForm.isDefault || paymentMethods.length === 0,
+        })
+
+        paymentMethodIdToUse = saveCardResponse?.data?.data?.paymentMethod?.id
+        if (!paymentMethodIdToUse) {
+          throw new Error('Failed to create payment method')
+        }
+
+        setSelectedPaymentMethodId(paymentMethodIdToUse)
+      } catch (error) {
+        alert(error.response?.data?.message || 'Failed to save card for purchase')
+        setPurchasing(false)
+        return
+      }
+    }
+
+    if (!paymentMethodIdToUse) {
+      alert('Please select a saved card to purchase gift card')
+      return
+    }
+
     setPurchasing(true)
     try {
-      const response = await api.post('/giftcards/purchase', { amount: parseFloat(amount) })
-      setPurchasedCode(response.data.code)
+      const response = await api.post('/giftcards/purchase', {
+        amount: parseFloat(amount),
+        paymentMethodId: paymentMethodIdToUse,
+      })
+      setPurchasedCode(response?.data?.data?.giftCard?.code || null)
       alert('Gift card purchased!')
       fetchMyCards()
+      fetchPaymentMethods()
+      if (useNewCard) {
+        setNewCardForm({ cardNumber: '', expiry: '', brand: 'visa', isDefault: false })
+      }
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to purchase gift card')
     } finally {
@@ -154,9 +255,96 @@ const GiftCards = () => {
                 <option value="500">$500</option>
               </select>
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Pay With Saved Card</label>
+              <select
+                value={selectedPaymentMethodId}
+                onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+                disabled={useNewCard || loadingPaymentMethods || paymentMethods.length === 0}
+              >
+                {loadingPaymentMethods ? (
+                  <option value="">Loading cards...</option>
+                ) : paymentMethods.length === 0 ? (
+                  <option value="">No saved cards found</option>
+                ) : (
+                  paymentMethods.map((method) => (
+                    <option key={method.id} value={method.id}>
+                      {formatPaymentMethodLabel(method)}
+                    </option>
+                  ))
+                )}
+              </select>
+              {paymentMethods.length === 0 && !loadingPaymentMethods && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Add a card in Payment Methods before purchasing a gift card.
+                </p>
+              )}
+            </div>
+            <div className="mb-4">
+              <label className="flex items-center text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={useNewCard}
+                  onChange={(e) => setUseNewCard(e.target.checked)}
+                  className="mr-2"
+                />
+                Use a new card for this purchase
+              </label>
+            </div>
+
+            {useNewCard && (
+              <div className="mb-4 p-3 border rounded-md bg-gray-50 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Card Number</label>
+                  <input
+                    type="text"
+                    value={newCardForm.cardNumber}
+                    onChange={(e) => setNewCardForm({ ...newCardForm, cardNumber: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="4242 4242 4242 4242"
+                    required={useNewCard}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Expiry (MM/YY)</label>
+                    <input
+                      type="text"
+                      value={newCardForm.expiry}
+                      onChange={(e) => setNewCardForm({ ...newCardForm, expiry: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                      placeholder="12/29"
+                      required={useNewCard}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Brand</label>
+                    <select
+                      value={newCardForm.brand}
+                      onChange={(e) => setNewCardForm({ ...newCardForm, brand: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="visa">VISA</option>
+                      <option value="mastercard">MASTERCARD</option>
+                      <option value="amex">AMEX</option>
+                    </select>
+                  </div>
+                </div>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    checked={newCardForm.isDefault}
+                    onChange={(e) => setNewCardForm({ ...newCardForm, isDefault: e.target.checked })}
+                    className="mr-2"
+                  />
+                  Save as default payment method
+                </label>
+              </div>
+            )}
             <button
               type="submit"
-              disabled={purchasing}
+              disabled={purchasing || (!useNewCard && (loadingPaymentMethods || paymentMethods.length === 0 || !selectedPaymentMethodId))}
               className="w-full bg-primary-600 text-white py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
             >
               {purchasing ? 'Purchasing...' : 'Purchase'}

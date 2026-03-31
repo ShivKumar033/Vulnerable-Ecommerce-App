@@ -12,22 +12,52 @@ import { sendOrderConfirmation } from '../utils/email.js';
 async function checkout(req, res, next) {
     try {
         const userId = req.user.id;
-        const { addressId, couponCode, giftCardCode, useWalletCredits, useLoyaltyPoints, notes } = req.body;
+        const { addressId, couponCode, giftCardCode, useWalletCredits, useLoyaltyPoints, notes, buyNowItem } = req.body;
+
+        let cart = null;
+        let checkoutItems = [];
+        let isDirectBuy = false;
+
+        if (buyNowItem?.productId) {
+            const quantity = Math.max(1, parseInt(buyNowItem.quantity, 10) || 1);
+            const product = await prisma.product.findUnique({
+                where: { id: buyNowItem.productId },
+            });
+
+            if (!product) {
+                return res.status(404).json({
+                    status: 'error',
+                    message: 'Product not found for direct checkout.',
+                });
+            }
+
+            checkoutItems = [
+                {
+                    productId: product.id,
+                    quantity,
+                    price: parseFloat(product.price),
+                    product,
+                },
+            ];
+            isDirectBuy = true;
+        }
 
         // Fetch cart with items (authenticated user cart)
-        let cart = await prisma.cart.findUnique({
-            where: { userId },
-            include: {
-                items: {
-                    include: {
-                        product: true,
+        if (!isDirectBuy) {
+            cart = await prisma.cart.findUnique({
+                where: { userId },
+                include: {
+                    items: {
+                        include: {
+                            product: true,
+                        },
                     },
                 },
-            },
-        });
+            });
+        }
 
         // If no cart, try to get guest cart
-        if (!cart || cart.items.length === 0) {
+        if (!isDirectBuy && (!cart || cart.items.length === 0)) {
             const guestCartId = req.cookies?.guestCartId;
             if (guestCartId) {
                 cart = await prisma.guestCart.findUnique({
@@ -43,11 +73,15 @@ async function checkout(req, res, next) {
             }
         }
 
-        if (!cart || cart.items.length === 0) {
+        if (!isDirectBuy && (!cart || cart.items.length === 0)) {
             return res.status(400).json({
                 status: 'error',
                 message: 'Cart is empty. Add items before checking out.',
             });
+        }
+
+        if (!isDirectBuy) {
+            checkoutItems = cart.items;
         }
 
         // VULNERABLE: Race condition — no transaction or row-level locking.
@@ -59,7 +93,7 @@ async function checkout(req, res, next) {
         let subtotal = 0;
         const orderItems = [];
 
-        for (const item of cart.items) {
+        for (const item of checkoutItems) {
             // VULNERABLE: No re-validation of price from the product table.
             // The price in the cart item (set by the client) is used directly.
 
@@ -268,11 +302,13 @@ async function checkout(req, res, next) {
         });
 
         // Clear the cart after checkout
-        if (cart.userId) {
-            await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
-        } else {
-            // Guest cart - also clear it
-            await prisma.guestCartItem.deleteMany({ where: { cartId: cart.id } });
+        if (!isDirectBuy && cart) {
+            if (cart.userId) {
+                await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+            } else {
+                // Guest cart - also clear it
+                await prisma.guestCartItem.deleteMany({ where: { cartId: cart.id } });
+            }
         }
 
         // Earn loyalty points from purchase (1 point per dollar spent)
