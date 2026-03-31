@@ -33,6 +33,14 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    if (!originalRequest) {
+      return Promise.reject(error)
+    }
+
+    if (originalRequest.url?.includes('/auth/refresh-token')) {
+      return Promise.reject(error)
+    }
+
     // If 401 and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
@@ -42,21 +50,29 @@ api.interceptors.response.use(
         if (refreshToken) {
           const response = await axios.post(
             `${API_BASE_URL}/auth/refresh-token`,
-            {},
+            { refreshToken },
             {
-              headers: {
-                Authorization: `Bearer ${refreshToken}`,
-              },
               withCredentials: true,
             }
           )
 
-          const { accessToken } = response.data
-          localStorage.setItem('accessToken', accessToken)
+          const refreshedAccessToken = response.data?.data?.accessToken
+          const refreshedRefreshToken = response.data?.data?.refreshToken
 
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`
+          if (!refreshedAccessToken) {
+            throw new Error('No access token returned from refresh endpoint')
+          }
+
+          localStorage.setItem('accessToken', refreshedAccessToken)
+          if (refreshedRefreshToken) {
+            // Keep original refresh token in storage so session naturally expires after ~7 days from login
+          }
+
+          originalRequest.headers.Authorization = `Bearer ${refreshedAccessToken}`
           return api(originalRequest)
         }
+
+        throw new Error('No refresh token available')
       } catch (refreshError) {
         // Refresh failed, clear tokens and redirect to login
         localStorage.removeItem('accessToken')

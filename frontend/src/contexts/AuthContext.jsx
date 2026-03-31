@@ -53,7 +53,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData))
       setUser(userData)
 
-      toast.success('Login successful!')
+      toast.success('Login successful!', {
+        pauseOnHover: false,
+      })
       return { success: true }
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed'
@@ -72,7 +74,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(newUser))
       setUser(newUser)
 
-      toast.success('Registration successful!')
+      toast.success('Registration successful!',{
+        pauseOnHover: false,
+      })
       return { success: true }
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed'
