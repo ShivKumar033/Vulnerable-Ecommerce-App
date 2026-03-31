@@ -72,12 +72,38 @@ async function listGiftCards(req, res, next) {
  */
 async function purchaseGiftCard(req, res, next) {
     try {
-        const { amount, currency = 'USD', expiresInDays = 365 } = req.body;
+        const { amount, paymentMethodId, currency = 'USD', expiresInDays = 365 } = req.body;
+        const parsedAmount = Number(amount);
 
-        if (!amount || amount <= 0) {
+        if (!parsedAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
             return res.status(400).json({
                 status: 'error',
                 message: 'Valid amount is required.',
+            });
+        }
+
+        if (!paymentMethodId) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Saved card is required to purchase gift card.',
+            });
+        }
+
+        const selectedPaymentMethod = await prisma.savedPaymentMethod.findUnique({
+            where: { id: paymentMethodId },
+        });
+
+        if (!selectedPaymentMethod || selectedPaymentMethod.userId !== req.user.id) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Saved payment method not found.',
+            });
+        }
+
+        if (String(selectedPaymentMethod.type).toLowerCase() !== 'card') {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Only card payment methods can be used for gift card purchase.',
             });
         }
 
@@ -87,8 +113,8 @@ async function purchaseGiftCard(req, res, next) {
         const giftCard = await prisma.giftCard.create({
             data: {
                 code,
-                initialBalance: amount,
-                currentBalance: amount,
+                initialBalance: parsedAmount,
+                currentBalance: parsedAmount,
                 currency,
                 status: 'ACTIVE',
                 purchasedById: req.user.id,
@@ -101,8 +127,8 @@ async function purchaseGiftCard(req, res, next) {
             data: {
                 giftCardId: giftCard.id,
                 type: 'PURCHASE',
-                amount,
-                description: `Purchased gift card ${code}`,
+                amount: parsedAmount,
+                description: `Purchased gift card ${code} using card ending ${selectedPaymentMethod.last4}`,
             },
         });
 
@@ -111,7 +137,7 @@ async function purchaseGiftCard(req, res, next) {
             action: 'GIFT_CARD_PURCHASED',
             entity: 'GiftCard',
             entityId: giftCard.id,
-            metadata: { code, amount },
+            metadata: { code, amount: parsedAmount, paymentMethodId: selectedPaymentMethod.id },
             req,
         });
 
