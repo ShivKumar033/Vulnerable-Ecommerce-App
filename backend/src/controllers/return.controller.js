@@ -70,12 +70,12 @@ async function listReturnRequests(req, res, next) {
  */
 async function createReturnRequest(req, res, next) {
     try {
-        const { orderId, reason, items, refundAmount } = req.body;
+        const { orderId, reason, items, productId } = req.body;
 
-        if (!orderId || !reason || !items || !refundAmount) {
+        if (!orderId || !reason) {
             return res.status(400).json({
                 status: 'error',
-                message: 'orderId, reason, items, and refundAmount are required.',
+                message: 'orderId and reason are required.',
             });
         }
 
@@ -119,12 +119,59 @@ async function createReturnRequest(req, res, next) {
             });
         }
 
+        const normalizedItems = Array.isArray(items) && items.length > 0
+            ? items
+            : productId
+                ? [{ productId, quantity: 1 }]
+                : [];
+
+        if (normalizedItems.length === 0) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'At least one return item is required (items or productId).',
+            });
+        }
+
+        let computedRefundAmount = 0;
+
+        for (const entry of normalizedItems) {
+            const selectedProductId = typeof entry === 'string' ? entry : entry.productId;
+            const requestedQty = Number(typeof entry === 'object' ? entry.quantity : 1) || 1;
+
+            if (!selectedProductId) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Each return item must include productId.',
+                });
+            }
+
+            const orderItem = order.items.find((lineItem) => lineItem.productId === selectedProductId);
+
+            if (!orderItem) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: `Invalid productId: ${selectedProductId}`,
+                });
+            }
+
+            if (requestedQty <= 0 || requestedQty > orderItem.quantity) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: `Invalid quantity for productId: ${selectedProductId}`,
+                });
+            }
+
+            computedRefundAmount += Number(orderItem.price) * requestedQty;
+        }
+
+        const refundAmount = Number(computedRefundAmount.toFixed(2));
+
         const returnRequest = await prisma.returnRequest.create({
             data: {
                 orderId,
                 userId: req.user.id,
                 reason,
-                items: JSON.stringify(items),
+                items: JSON.stringify(normalizedItems),
                 refundAmount,
                 status: 'PENDING',
             },

@@ -21,10 +21,8 @@ const Returns = () => {
     try {
       const response = await api.get('/returns')
       // Handle different response formats - extract returnRequests from nested data
-      const returnsData = response.data?.data?.returnRequests || 
-                         response.data?.returnRequests || 
-                         response.data || 
-                         []
+      const returnsData = response.data?.data?.returnRequests || response.data?.returnRequests || response.data || [];
+      
       setReturns(Array.isArray(returnsData) ? returnsData : [])
     } catch (error) {
       console.error('Error fetching returns:', error)
@@ -32,13 +30,23 @@ const Returns = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }  
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await api.post('/returns', formData)
+      await api.post('/returns', {
+        orderId: formData.orderId,
+        reason: formData.reason,
+        description: formData.description,
+        items: [
+          {
+            itemId: formData.itemId,
+            quantity: 1,
+          },
+        ],
+      })
       alert('Return request submitted!')
       setShowForm(false)
       setFormData({ orderId: '', itemId: '', reason: '', description: '' })
@@ -49,6 +57,7 @@ const Returns = () => {
       setSubmitting(false)
     }
   }
+  
 
   const getStatusColor = (status) => {
     const colors = {
@@ -88,7 +97,7 @@ const Returns = () => {
             <div>
               <label className="block text-sm font-medium mb-1">Order ID</label>
               <input
-                type="number"
+                type="string"
                 value={formData.orderId}
                 onChange={(e) => setFormData({ ...formData, orderId: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md"
@@ -96,9 +105,9 @@ const Returns = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Item ID</label>
+              <label className="block text-sm font-medium mb-1">Product ID</label>
               <input
-                type="number"
+                type="string"
                 value={formData.itemId}
                 onChange={(e) => setFormData({ ...formData, itemId: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md"
@@ -179,7 +188,7 @@ const Returns = () => {
                 </p>
                 {returnItem.refundAmount && (
                   <p className="mt-2 font-semibold">
-                    Refund Amount: ${returnItem.refundAmount.toFixed(2)}
+                    Refund Amount: ${Number(returnItem.refundAmount).toFixed(2)}
                   </p>
                 )}
               </div>
