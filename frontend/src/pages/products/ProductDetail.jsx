@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 
 const ProductDetail = () => {
   const { id } = useParams()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [product, setProduct] = useState(null)
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
@@ -13,6 +14,7 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1)
   const [selectedVariant, setSelectedVariant] = useState({})
   const [addingToCart, setAddingToCart] = useState(false)
+  const [buyingNow, setBuyingNow] = useState(false)
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
   const [submittingReview, setSubmittingReview] = useState(false)
 
@@ -71,6 +73,34 @@ const ProductDetail = () => {
       alert('Added to wishlist!')
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to add to wishlist')
+    }
+  }
+
+  const handleBuyNow = async () => {
+    if (!user) {
+      alert('Please login to continue')
+      navigate('/login')
+      return
+    }
+
+    setBuyingNow(true)
+    try {
+      navigate('/checkout', {
+        state: {
+          buyNowItem: {
+            productId: id,
+            quantity,
+            variant: selectedVariant,
+            productName: product?.name,
+            productImages: product?.images || [],
+            price: Number(product?.price || 0),
+          },
+        },
+      })
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to start checkout')
+    } finally {
+      setBuyingNow(false)
     }
   }
 
@@ -203,6 +233,13 @@ const ProductDetail = () => {
               className="flex-1 bg-primary-600 text-white py-3 px-6 rounded-md hover:bg-primary-700 disabled:opacity-50"
             >
               {addingToCart ? 'Adding...' : 'Add to Cart'}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={buyingNow}
+              className="flex-1 bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              {buyingNow ? 'Redirecting...' : 'Buy Now'}
             </button>
             <button
               onClick={handleAddToWishlist}

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 
 const Checkout = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const buyNowItem = location.state?.buyNowItem || null
+  const isDirectBuy = Boolean(buyNowItem?.productId)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [addresses, setAddresses] = useState([])
@@ -50,10 +53,47 @@ const Checkout = () => {
 
   const fetchData = async () => {
     try {
-      const [cartRes, addressRes] = await Promise.all([
-        api.get('/cart'),
-        api.get('/users/addresses'),
-      ])
+      if (isDirectBuy) {
+        const [productRes, addressRes] = await Promise.all([
+          api.get(`/products/${buyNowItem.productId}`),
+          api.get('/users/addresses'),
+        ])
+
+        const product = productRes.data.data?.product || productRes.data.data || null
+        const quantity = Math.max(1, parseInt(buyNowItem.quantity, 10) || 1)
+        const price = Number(product?.price || buyNowItem.price || 0)
+
+        setCart({
+          items: [
+            {
+              id: `buy-now-${buyNowItem.productId}`,
+              productId: buyNowItem.productId,
+              quantity,
+              price,
+              product: {
+                name: product?.name || product?.title || buyNowItem.productName || 'Product',
+                images: product?.images || buyNowItem.productImages || [],
+              },
+            },
+          ],
+        })
+
+        const addressList = addressRes.data?.data?.addresses || addressRes.data?.addresses || []
+        const normalizedAddresses = Array.isArray(addressList) ? addressList : []
+        setAddresses(normalizedAddresses)
+
+        if (normalizedAddresses.length > 0) {
+          const defaultAddress = normalizedAddresses.find((address) => address.isDefault)
+          setSelectedAddress(defaultAddress || normalizedAddresses[0])
+          setShowAddressForm(false)
+        } else {
+          setSelectedAddress(null)
+          setShowAddressForm(true)
+        }
+        return
+      }
+
+      const [cartRes, addressRes] = await Promise.all([api.get('/cart'), api.get('/users/addresses')])
       setCart(cartRes.data.data?.cart || cartRes.data.data || null)
       const addressList = addressRes.data?.data?.addresses || addressRes.data?.addresses || []
       const normalizedAddresses = Array.isArray(addressList) ? addressList : []
@@ -105,9 +145,18 @@ const Checkout = () => {
       }
 
       // Step 1: Create order FIRST (required to get orderId)
-      const orderRes = await api.post('/orders/checkout', {
+      const checkoutPayload = {
         addressId: selectedAddress.id,
-      })
+      }
+
+      if (isDirectBuy) {
+        checkoutPayload.buyNowItem = {
+          productId: buyNowItem.productId,
+          quantity: Math.max(1, parseInt(buyNowItem.quantity, 10) || 1),
+        }
+      }
+
+      const orderRes = await api.post('/orders/checkout', checkoutPayload)
 
       if (!orderRes.data?.data?.order?.id) {
         throw new Error('Failed to create order')
