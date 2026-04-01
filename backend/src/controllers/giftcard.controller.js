@@ -165,12 +165,12 @@ async function purchaseGiftCard(req, res, next) {
  */
 async function redeemGiftCard(req, res, next) {
     try {
-        const { code, amount } = req.body;
+        const { code } = req.body;
 
-        if (!code || !amount) {
+        if (!code) {
             return res.status(400).json({
                 status: 'error',
-                message: 'code and amount are required.',
+                message: 'code is required.',
             });
         }
 
@@ -207,40 +207,33 @@ async function redeemGiftCard(req, res, next) {
             });
         }
 
-        if (giftCard.currentBalance < amount) {
+        const redeemAmount = Number(giftCard.currentBalance || 0);
+
+        if (redeemAmount <= 0) {
             return res.status(400).json({
                 status: 'error',
-                message: 'Insufficient gift card balance.',
+                message: 'Gift card has no redeemable balance.',
             });
         }
 
-        // Update balance without transaction locking (race condition vulnerable)
+        // Redeem the full remaining balance
         const updated = await prisma.giftCard.update({
             where: { id: giftCard.id },
             data: {
-                currentBalance: { decrement: amount },
+                currentBalance: { decrement: redeemAmount },
                 redeemedById: req.user.id,
+                status: 'USED',
+                expiresAt: new Date(),
             },
         });
-
-        // Check if fully redeemed
-        if (updated.currentBalance <= 0) {
-            await prisma.giftCard.update({
-                where: { id: giftCard.id },
-                data: {
-                    status: 'USED',
-                    expiresAt: new Date(),
-                },
-            });
-        }
 
         // Record transaction
         await prisma.giftCardTransaction.create({
             data: {
                 giftCardId: giftCard.id,
                 type: 'REDEEM',
-                amount,
-                description: `Redeemed ${amount} from gift card`,
+                amount: redeemAmount,
+                description: `Redeemed full balance of ${redeemAmount} from gift card`,
             },
         });
 
@@ -249,13 +242,13 @@ async function redeemGiftCard(req, res, next) {
             action: 'GIFT_CARD_REDEEMED',
             entity: 'GiftCard',
             entityId: giftCard.id,
-            metadata: { code, amount },
+            metadata: { code, amount: redeemAmount },
             req,
         });
 
         return res.status(200).json({
             status: 'success',
-            message: `Redeemed ${amount} from gift card.`,
+            message: `Redeemed full balance of ${redeemAmount} from gift card.`,
             data: {
                 remainingBalance: updated.currentBalance,
             },

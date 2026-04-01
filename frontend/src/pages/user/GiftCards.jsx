@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 
 const GiftCards = () => {
+  const { user } = useAuth()
   const [myCards, setMyCards] = useState([])
   const [paymentMethods, setPaymentMethods] = useState([])
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState('')
@@ -19,7 +21,6 @@ const GiftCards = () => {
   const [purchasedCode, setPurchasedCode] = useState(null)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemCode, setRedeemCode] = useState('')
-  const [redeemAmount, setRedeemAmount] = useState('')
   const [checkingBalance, setCheckingBalance] = useState(false)
   const [checkedGiftCard, setCheckedGiftCard] = useState(null)
 
@@ -55,7 +56,7 @@ const GiftCards = () => {
 
   const fetchMyCards = async () => {
     try {
-      const response = await api.get('/giftcards')
+      const response = await api.get('/giftcards')      
       
       setMyCards(response?.data?.data?.giftCards || [])
     } catch (error) {
@@ -63,7 +64,7 @@ const GiftCards = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }  
 
   const fetchPaymentMethods = async () => {
     try {
@@ -177,11 +178,9 @@ const GiftCards = () => {
     try {
       await api.post('/giftcards/redeem', {
         code: redeemCode,
-        amount: parseFloat(redeemAmount)
       })
       alert('Gift card redeemed!')
       setRedeemCode('')
-      setRedeemAmount('')
       fetchMyCards()
     } catch (error) {
       alert(error.response?.data?.message || 'Invalid gift card code')
@@ -210,6 +209,17 @@ const GiftCards = () => {
     }
   }
 
+  const totalRedeemedAmount = myCards.reduce((total, card) => {
+    const redeemedByCurrentUser = card?.redeemedBy?.id && card?.redeemedBy?.id === user?.id
+    if (!redeemedByCurrentUser) return total
+
+    const initialBalance = Number(card?.initialBalance || 0)
+    const currentBalance = Number(card?.currentBalance || 0)
+    const redeemedAmount = Math.max(initialBalance - currentBalance, 0)
+
+    return total + redeemedAmount
+  }, 0)
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -221,6 +231,13 @@ const GiftCards = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Gift Cards</h1>
+
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <p className="text-sm text-gray-600">Total Redeemed Gift Card Amount</p>
+        <p className="text-3xl font-bold text-primary-600">
+          ${totalRedeemedAmount.toFixed(2)}
+        </p>
+      </div>
 
       {/* Purchased Code Display */}
       {purchasedCode && (
@@ -386,22 +403,9 @@ const GiftCards = () => {
                 <p className="text-gray-600">
                   Expires At: {formatDateTime(checkedGiftCard.expiresAt, 'Never')}
                 </p>
+                <p className="text-gray-600 mt-1">Redeem action will use the full remaining balance.</p>
               </div>
             )}
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Amount</label>
-              <input
-                type="number"
-                value={redeemAmount}
-                onChange={(e) => setRedeemAmount(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-                placeholder="Enter amount"
-                min="0.01"
-                step="0.01"
-                required
-              />
-            </div>
             <button
               type="submit"
               disabled={redeeming}
