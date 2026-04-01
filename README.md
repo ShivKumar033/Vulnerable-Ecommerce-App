@@ -45,10 +45,6 @@ A fully functional, industry-level e-commerce platform built with intentional se
 │       ├── routes/         # Route configuration
 │       ├── App.jsx         # App root component
 │       └── main.jsx        # Entry point
-├── docs/
-│   ├── MASTER_PROMPT.md    # Full project requirements
-│   └── Vulnerability-list.md
-└── phase/                  # Phased implementation plans
 ```
 
 ## Quick Start
@@ -82,6 +78,19 @@ npm run dev
 
 The frontend starts at `http://localhost:5173`.
 
+## Test Accounts
+
+The database seed creates these default accounts for testing:
+
+| Role    | Email                 | Password    |
+| ------- | --------------------- | ----------- |
+| Admin   | admin@example.com     | password123 |
+| Vendor  | vendor@example.com    | password123 |
+| Support | support@example.com   | password123 |
+| User    | user@example.com      | password123 |
+
+These accounts are defined in [backend/prisma/seed.js](backend/prisma/seed.js).
+
 ## Vulnerability Coverage
 
 This platform targets **45–55 real-world vulnerabilities** covering:
@@ -92,8 +101,6 @@ This platform targets **45–55 real-world vulnerabilities** covering:
 - ✅ Business logic flaws
 - ✅ Race conditions
 - ✅ OAuth vulnerabilities
-
-See [`docs/Vulnerability-list.md`](docs/Vulnerability-list.md) for the full catalog.
 
 ## License
 
