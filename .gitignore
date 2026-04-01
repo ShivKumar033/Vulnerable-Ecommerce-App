@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# md file
+FRONTED.md
+QA_REPORT.md
+TODO.md
+docs/
+
 # Environment variables
 .env
 .env.local
