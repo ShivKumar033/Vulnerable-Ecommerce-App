@@ -1,0 +1,74 @@
+# Compose file for running frontend, backend, and PostgreSQL together.
+services:
+  # PostgreSQL database used by the backend service.
+  postgres:
+    # Use the official PostgreSQL 16 image.
+    image: postgres:16-alpine
+    # Keep the container name predictable for local development.
+    container_name: vulnerable-ecommerce-postgres
+    # Always restart unless the container is manually stopped.
+    restart: unless-stopped
+    # Set database credentials and initial database name.
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vuln_ecommerce
+    # Expose PostgreSQL to the host machine.
+    ports:
+      - "5432:5432"
+    # Persist database files across container restarts.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Add a healthcheck so dependent services wait for DB readiness.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d vuln_ecommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API service.
+  backend:
+    # Build backend image from the backend folder Dockerfile.
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # Keep the container name predictable for local development.
+    container_name: vulnerable-ecommerce-backend
+    # Always restart unless the container is manually stopped.
+    restart: unless-stopped
+    # Set backend runtime environment variables.
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DATABASE_URL: postgresql://user:password@postgres:5432/vuln_ecommerce?schema=public
+      JWT_SECRET: secret123
+      FRONTEND_URL: http://localhost:5173
+    # Expose backend API to the host machine.
+    ports:
+      - "5000:5000"
+    # Start backend after PostgreSQL is healthy.
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Frontend Vite development service.
+  frontend:
+    # Build frontend image from the frontend folder Dockerfile.
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    # Keep the container name predictable for local development.
+    container_name: vulnerable-ecommerce-frontend
+    # Always restart unless the container is manually stopped.
+    restart: unless-stopped
+    # Expose Vite dev server to the host machine.
+    ports:
+      - "5173:5173"
+    # Start frontend after backend service starts.
+    depends_on:
+      - backend
+
+# Named volumes used by services.
+volumes:
+  # Persistent volume for PostgreSQL data.
+  postgres_data:
